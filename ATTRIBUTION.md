@@ -36,6 +36,14 @@ These come from Rust crate dependencies (not files in this repository) and keep 
 | Only in builds made with `CRAFT_FONTS_DIR`: Inter Regular and SemiBold (desktop and web), from storytold/craft-fonts' Latin catalog (`crates/ui-egui/build.rs`) | Interface text | The Inter Project Authors | https://github.com/storytold/craft-fonts (pinned sources in its `fonts/latin-manifest.txt` and `ATTRIBUTION.md`) | OFL 1.1 |
 | Only in builds made with `CRAFT_FONTS_DIR`: BIZ UDPGothic Regular (desktop and web), Noto Sans CJK SC Regular (desktop) and Noto Sans Arabic Regular (desktop and web), from storytold/craft-fonts (`crates/ui-egui/build.rs`) | Japanese, Chinese and Arabic UI text | The BIZ UDGothic Project Authors (Morisawa Inc.); The Noto Project Authors | https://github.com/storytold/craft-fonts (pinned sources in its `fonts/manifest.txt` and `ATTRIBUTION.md`) | OFL 1.1 |
 
+## Assets downloaded at run time
+
+Nothing below is bundled: the user downloads it, and it lands in their own project.
+
+| Source | Used for | License |
+|---|---|---|
+| [ambientCG](https://ambientcg.com) (Lennart Demes), through its public API v3 | The Assets panel's ambientCG tab and the `assets.ambientcg.*` commands: PBR materials (imported as fill layers) and HDRIs (imported as environments), with thumbnails shown while browsing | [CC0 1.0](https://docs.ambientcg.com/license/); the tab credits ambientCG.com |
+
 Without craft-fonts, Chinese, Japanese, Korean and Arabic UI text uses the operating system's fonts at run
 time (nothing is bundled); see [docs/localization-parity.md](docs/localization-parity.md).
 

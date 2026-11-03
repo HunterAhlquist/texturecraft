@@ -279,6 +279,30 @@ pub struct UiState {
     /// The brush that paints the skew correction map in the 2D view of bake mode.
     #[serde(default)]
     pub skew_brush: SkewBrush,
+    /// The ambientCG tab of the asset shelf.
+    #[serde(default)]
+    pub ambientcg: AmbientCgUi,
+}
+
+/// The ambientCG tab's search and download choices (API ids, kept across sessions).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AmbientCgUi {
+    pub query: String,
+    /// `material` or `hdri`.
+    pub kind: String,
+    /// `popular`, `latest`, `downloads` or `alphabet`.
+    pub sort: String,
+    /// Download resolution in K.
+    pub resolution: u32,
+    /// Material maps as PNG rather than JPG.
+    pub png: bool,
+}
+
+impl Default for AmbientCgUi {
+    fn default() -> Self {
+        AmbientCgUi { query: String::new(), kind: "material".into(), sort: "popular".into(), resolution: 2, png: false }
+    }
 }
 
 /// Settings of the skew correction brush (radius in UV units).
@@ -308,6 +332,7 @@ impl UiState {
         self.shelf_filter = keep.shelf_filter;
         self.prefs = keep.prefs;
         self.keymap = keep.keymap;
+        self.ambientcg = keep.ambientcg;
         self.rename = None;
     }
 }
@@ -338,6 +363,7 @@ impl Default for UiState {
             keymap: Keymap::new(),
             bake_baker: None,
             skew_brush: SkewBrush::default(),
+            ambientcg: AmbientCgUi::default(),
         }
     }
 }

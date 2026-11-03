@@ -69,10 +69,27 @@ fn join(dir: &str, name: &str) -> String {
     if dir == "." { name.to_string() } else { format!("{}/{name}", dir.trim_end_matches('/')) }
 }
 
+/// A blocking GET for the ambientCG commands, refusing replies over `max` bytes.
+fn fetch(url: &str, max: u64) -> Result<Vec<u8>, String> {
+    let mut req = ehttp::Request::get(url);
+    req.timeout = Some(std::time::Duration::from_secs(600));
+    req.headers.insert("User-Agent", concat!("TextureCraft/", env!("CARGO_PKG_VERSION"), " (+https://github.com/storytold/texturecraft)"));
+    let resp = ehttp::fetch_blocking(&req)?;
+    if !resp.ok {
+        return Err(format!("HTTP {} {}", resp.status, resp.status_text));
+    }
+    if resp.bytes.len() as u64 > max {
+        return Err(format!("the reply is larger than {} MB", max >> 20));
+    }
+    Ok(resp.bytes)
+}
+
 impl Headless {
     pub fn new(session: Session, fs: Filesystem) -> Headless {
         // Bakes run here (CLI, MCP) cast their rays on the GPU when there is one.
         texturecraft_engine::bake_cmds::install_gpu_tracer(std::sync::Arc::new(texturecraft_render::gpu_bake::GpuBaker::new()));
+        // `assets.ambientcg.*` fetch from ambientCG (and nowhere else).
+        texturecraft_engine::ambientcg_cmds::install_fetcher(std::sync::Arc::new(fetch));
         Headless { session, fs, gpu: None }
     }
 
