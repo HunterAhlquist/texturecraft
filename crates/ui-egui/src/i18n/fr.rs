@@ -137,6 +137,14 @@ pub const TABLE: &[(&str, &str)] = &[
     ("Bevel", "Biseau"),
     ("Black", "Noir"),
     ("Blend sharpness", "Netteté du fondu"),
+    (
+        "Blender add-on installed and enabled for Blender {version}. Open models from the TextureCraft tab in the 3D viewport's sidebar; restart Blender if it is open.",
+        "Extension Blender installée et activée pour Blender {version}. Ouvrez des modèles depuis l'onglet TextureCraft de la barre latérale de la vue 3D ; redémarrez Blender s'il est ouvert.",
+    ),
+    (
+        "Blender add-on written to {folder}. Enable it in Blender {version} under Edit ▸ Preferences ▸ Add-ons.",
+        "Extension Blender écrite dans {folder}. Activez-la dans Blender {version} via Édition ▸ Préférences ▸ Extensions.",
+    ),
     ("Blending", "Fusion"),
     ("Blending mode of the displayed channel", "Mode de fusion du canal affiché"),
     ("Blur", "Flou"),
@@ -461,6 +469,7 @@ pub const TABLE: &[(&str, &str)] = &[
     ("Import images to use them in fills and masks", "Importez des images pour les utiliser dans les remplissages et les masques"),
     ("Import resources...", "Importer des ressources..."),
     ("Import MaterialX material...", "Importer un matériau MaterialX..."),
+    ("Install Blender add-on...", "Installer l'extension Blender..."),
     ("MaterialX materials", "Matériaux MaterialX"),
     ("Import...", "Importer..."),
     ("Imported template \"{name}\"", "Modèle « {name} » importé"),

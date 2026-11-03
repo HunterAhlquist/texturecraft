@@ -131,6 +131,14 @@ pub const TABLE: &[(&str, &str)] = &[
     ("Bevel", "شطف الحواف"),
     ("Black", "أسود"),
     ("Blend sharpness", "حدة المزج"),
+    (
+        "Blender add-on installed and enabled for Blender {version}. Open models from the TextureCraft tab in the 3D viewport's sidebar; restart Blender if it is open.",
+        "تم تثبيت إضافة Blender وتفعيلها لإصدار Blender {version}. افتح النماذج من تبويب TextureCraft في الشريط الجانبي لمنفذ العرض ثلاثي الأبعاد؛ أعد تشغيل Blender إذا كان مفتوحًا.",
+    ),
+    (
+        "Blender add-on written to {folder}. Enable it in Blender {version} under Edit ▸ Preferences ▸ Add-ons.",
+        "تمت كتابة إضافة Blender في {folder}. فعّلها في Blender {version} من تحرير ▸ التفضيلات ▸ الإضافات.",
+    ),
     ("Blending", "الدمج"),
     ("Blending mode of the displayed channel", "نمط الدمج للقناة المعروضة"),
     ("Blur", "تمويه"),
@@ -431,6 +439,7 @@ pub const TABLE: &[(&str, &str)] = &[
     ("Import images to use them in fills and masks", "استورد الصور لاستخدامها في التعبئة والأقنعة"),
     ("Import resources...", "استيراد الموارد..."),
     ("Import MaterialX material...", "استيراد مادة MaterialX..."),
+    ("Install Blender add-on...", "تثبيت إضافة Blender..."),
     ("MaterialX materials", "مواد MaterialX"),
     ("Import...", "استيراد..."),
     ("Imported template \"{name}\"", "تم استيراد القالب \"{name}\""),

@@ -78,9 +78,19 @@ Everything TextureCraft does today, by area. What's still missing is in [`ROADMA
 ## Files and texture sets
 
 - **Open** glTF/GLB, FBX (binary and ASCII), COLLADA, **USD** (usda, usdc, usdz), **Alembic**,
-  OBJ, PLY and STL, or a built-in mesh; UVs are generated when a mesh has none. A `.gltf`'s buffers
-  and images and a loose USD layer's textures are read from its folder and kept in the project.
+  **Blender `.blend` files** (2.4 to 5.x, compressed or not: the current scene's visible mesh
+  objects with their transforms, collection instances, materials, UVs, vertex colors, sharp edges
+  and cameras; modifiers are not applied), OBJ, PLY and STL, or a built-in mesh; UVs are generated
+  when a mesh has none. A `.gltf`'s buffers and images, a loose USD layer's textures and a
+  `.blend`'s or FBX's texture files are read from its folder and kept in the project.
   Reimport a changed mesh and your painted strokes stay on the surface.
+- **Blender add-on:** with Blender installed, **Edit ▸ Install Blender add-on…** puts a
+  TextureCraft tab in Blender's 3D viewport sidebar (and an Object-menu entry) whose button
+  opens the selected objects, or the whole scene, in TextureCraft: as a glTF with modifiers
+  applied, or as a copy of the `.blend` file. The add-on (`assets/blender-addon`) lands in
+  Blender's user add-ons folder and is switched on by a Blender started in the background; the
+  menu entry only appears when a Blender is found (`$BLENDER`, `blender` on `PATH`, or the usual
+  install locations). Agents run the same thing as `blender.installAddon`.
 - **UDIM / UV tiles:** detected on import or switched on later, with a resolution per tile (blurs,
   other filters and height-to-normal slopes keep their size in UV space at any tile resolution)
   and one texture per tile on export (`$udim`).
@@ -121,7 +131,7 @@ Everything TextureCraft does today, by area. What's still missing is in [`ROADMA
   its own shadows) from the height channel; image-based lighting from six procedural studio and
   outdoor environments or **your own HDR/EXR panoramas**; ACES or linear tone mapping, key-light
   shadows, bloom, vignette, sharpen, grain, **depth of field** and **saved cameras** (also imported
-  from glTF, FBX, COLLADA and USD files).
+  from glTF, FBX, COLLADA, USD and Blender files).
 - **Rendering mode** (F10): a progressive, **path-traced** view of your textures with multi-bounce
   light, environment importance sampling, displaced geometry, a denoiser and one-click PNG save,
   traced on the GPU
@@ -129,7 +139,8 @@ Everything TextureCraft does today, by area. What's still missing is in [`ROADMA
 - View any channel, any baked mesh map, or a UV checker; Alt+drag to orbit, middle-drag to pan,
   wheel to zoom, F to frame, M / C / B to cycle views.
 - **3D and UV wireframes** that show the mesh's own polygons: quads and n-gons from OBJ, FBX,
-  COLLADA, USD, Alembic and PLY files keep their edges, without the triangulation's diagonals.
+  COLLADA, USD, Alembic, Blender and PLY files keep their edges, without the triangulation's
+  diagonals.
 
 ## Interface
 

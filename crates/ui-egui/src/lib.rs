@@ -197,6 +197,11 @@ impl TextureCraftApp {
         self.toasts.push(Toast { text: text.into(), error, until: self.last_time + if error { 6.0 } else { 3.0 } });
     }
 
+    /// A toast with a sentence or two to read (twelve seconds).
+    pub fn toast_long(&mut self, text: impl Into<String>) {
+        self.toasts.push(Toast { text: text.into(), error: false, until: self.last_time + 12.0 });
+    }
+
     /// An error toast that stays until the user dismisses it (for a problem that persists and
     /// is reported once, like a texture set the GPU could not hold).
     pub fn toast_sticky(&mut self, text: impl Into<String>) {

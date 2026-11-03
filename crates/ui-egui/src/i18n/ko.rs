@@ -131,6 +131,14 @@ pub const TABLE: &[(&str, &str)] = &[
     ("Bevel", "베벨"),
     ("Black", "검은색"),
     ("Blend sharpness", "블렌드 선명도"),
+    (
+        "Blender add-on installed and enabled for Blender {version}. Open models from the TextureCraft tab in the 3D viewport's sidebar; restart Blender if it is open.",
+        "Blender {version}용 애드온을 설치하고 활성화했습니다. 3D 뷰포트 사이드바의 TextureCraft 탭에서 모델을 여세요. Blender가 열려 있다면 다시 시작하세요.",
+    ),
+    (
+        "Blender add-on written to {folder}. Enable it in Blender {version} under Edit ▸ Preferences ▸ Add-ons.",
+        "Blender 애드온을 {folder}에 저장했습니다. Blender {version}의 편집 ▸ 환경 설정 ▸ 애드온에서 활성화하세요.",
+    ),
     ("Blending", "블렌딩"),
     ("Blending mode of the displayed channel", "표시된 채널의 블렌딩 모드"),
     ("Blur", "블러"),
@@ -434,6 +442,7 @@ pub const TABLE: &[(&str, &str)] = &[
     ("Import images to use them in fills and masks", "채우기와 마스크에 사용할 이미지를 가져옵니다"),
     ("Import resources...", "리소스 가져오기..."),
     ("Import MaterialX material...", "MaterialX 머티리얼 가져오기..."),
+    ("Install Blender add-on...", "Blender 애드온 설치..."),
     ("MaterialX materials", "MaterialX 머티리얼"),
     ("Import...", "가져오기..."),
     ("Imported template \"{name}\"", "템플릿 \"{name}\" 가져옴"),

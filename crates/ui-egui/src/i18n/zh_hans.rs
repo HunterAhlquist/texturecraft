@@ -113,6 +113,14 @@ pub const TABLE: &[(&str, &str)] = &[
     ("Bevel", "斜角"),
     ("Black", "黑色"),
     ("Blend sharpness", "混合锐度"),
+    (
+        "Blender add-on installed and enabled for Blender {version}. Open models from the TextureCraft tab in the 3D viewport's sidebar; restart Blender if it is open.",
+        "已为 Blender {version} 安装并启用插件。在 3D 视图侧栏的 TextureCraft 选项卡中打开模型；如果 Blender 正在运行，请重新启动。",
+    ),
+    (
+        "Blender add-on written to {folder}. Enable it in Blender {version} under Edit ▸ Preferences ▸ Add-ons.",
+        "Blender 插件已写入 {folder}。请在 Blender {version} 的 编辑 ▸ 偏好设置 ▸ 插件 中启用。",
+    ),
     ("Blending", "混合"),
     ("Blending mode of the displayed channel", "所显示通道的混合模式"),
     ("Blur", "模糊"),
@@ -389,6 +397,7 @@ pub const TABLE: &[(&str, &str)] = &[
     ("Import images to use them in fills and masks", "导入图像以在填充和遮罩中使用"),
     ("Import resources...", "导入资源..."),
     ("Import MaterialX material...", "导入 MaterialX 材质..."),
+    ("Install Blender add-on...", "安装 Blender 插件..."),
     ("MaterialX materials", "MaterialX 材质"),
     ("Import...", "导入..."),
     ("Imported template \"{name}\"", "已导入模板“{name}”"),

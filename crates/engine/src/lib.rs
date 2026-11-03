@@ -10,6 +10,7 @@
 
 pub mod auto_rebake;
 pub mod bake_cmds;
+pub mod blender_cmds;
 pub mod brush_preset_cmds;
 pub mod camera_cmds;
 pub mod commands;

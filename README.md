@@ -124,7 +124,8 @@ traced on the GPU by `texturecraft-cli render`.
   camera's visibility keeps paint off the back of your model.
 - **Robust.** No panics in shipped code, every command tested with hostile input, unlimited undo
   from copy-on-write snapshots, and lossless `.tcraft` projects.
-- **Open.** glTF/GLB, FBX, COLLADA, USD, Alembic, OBJ, PLY and STL in; PNG, JPEG, TGA, TIFF, BMP,
+- **Open.** glTF/GLB, FBX, COLLADA, USD, Alembic, Blender `.blend` (plus a one-click Blender
+  add-on that sends the selected objects over), OBJ, PLY and STL in; PNG, JPEG, TGA, TIFF, BMP,
   WEBP, EXR and HDR textures out at 8, 16 or 32 bits, with UDIM tiles; textured OBJ, GLB and USD
   mesh export. Every material, environment, brush alpha and built-in mesh is procedural.
 - **Works with MaterialCraft.** Node-based materials from
@@ -203,6 +204,8 @@ from our code against public documentation.
 - pen tilt, and pen pressure on Linux, macOS and desktop browsers (the windowing layer doesn't
   report them yet);
 - Alembic files in the older HDF5 container, and Alembic animation (the first sample is read);
+- modifiers, shape keys and custom normals encoded relative to the smooth normals in Blender
+  files (the saved base mesh is read; apply modifiers in Blender first);
 - a native-speaker review of the translations;
 - the first signed release on every platform.
 

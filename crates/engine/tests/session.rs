@@ -120,6 +120,9 @@ fn panic_hunt() {
         if spec.id == "project.sample" {
             continue; // slow (bakes); covered elsewhere
         }
+        if spec.id == "blender.installAddon" {
+            continue; // writes into the Blender installed on this machine; its pieces are unit-tested
+        }
         for p in &hostile {
             let mut s = session();
             let _ = execute(&mut s, spec.id, p);

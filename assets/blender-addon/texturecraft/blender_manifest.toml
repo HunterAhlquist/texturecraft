@@ -1,0 +1,14 @@
+# Blender 4.2+ extension manifest, so the folder also installs as an extension (zipped) from
+# Blender's preferences; TextureCraft itself installs it as a legacy add-on, which every Blender
+# from 2.80 on loads.
+schema_version = "1.0.0"
+id = "texturecraft"
+version = "1.0.0"
+name = "TextureCraft"
+tagline = "Open the selected objects in TextureCraft to paint their textures"
+maintainer = "TextureCraft contributors"
+type = "add-on"
+website = "https://github.com/storytold/texturecraft"
+tags = ["Import-Export", "Paint"]
+blender_version_min = "4.2.0"
+license = ["SPDX:MIT", "SPDX:Apache-2.0"]

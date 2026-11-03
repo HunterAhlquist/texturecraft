@@ -57,6 +57,7 @@ pub const CATALOG: &[Item] = &[
     it("Edit", "Project Configuration...", "ui.projectConfig", None),
     it("Edit", "Reimport mesh", "file.reimportMesh", Some("Ctrl+Shift+R")),
     it("Edit", "Settings...", "ui.settings", None),
+    it("Edit", "Install Blender add-on...", "blender.installAddon", None),
     it("Mode", "Bake Mesh Maps", "ui.mode.bake", Some("F8")),
     it("Mode", "Painting", "ui.mode.paint", Some("F9")),
     it("Mode", "Rendering (path traced)", "ui.mode.render", Some("F10")),
@@ -112,6 +113,12 @@ pub fn enabled(app: &TextureCraftApp, id: &str) -> bool {
     texturecraft_engine::find(id).is_some_and(|c| (c.enabled)(&app.session).is_ok())
 }
 
+/// Items that make no sense on this computer and leave the menu instead of greying out:
+/// the Blender add-on installer without a Blender.
+pub fn hidden(app: &TextureCraftApp, item: &Item) -> bool {
+    item.id == "blender.installAddon" && !enabled(app, item.id)
+}
+
 /// Whether an id is implemented at all (parity report).
 pub fn implemented(id: &str) -> bool {
     is_ui(id) || texturecraft_engine::find(id).is_some()
@@ -153,6 +160,24 @@ pub fn invoke(app: &mut TextureCraftApp, ctx: &egui::Context, id: &str) {
         "ui.help.website" => ctx.open_url(egui::OpenUrl::new_tab("https://getartcraft.com/apps/texturecraft")),
         "ui.help.docs" => ctx.open_url(egui::OpenUrl::new_tab("https://github.com/storytold/texturecraft#readme")),
         "ui.help.bug" => ctx.open_url(egui::OpenUrl::new_tab("https://github.com/storytold/texturecraft/issues")),
+        "blender.installAddon" => {
+            if let Some(r) = app.run(id, Value::Null) {
+                let s = |k: &str| r.get(k).and_then(Value::as_str).unwrap_or_default().to_string();
+                let (version, folder) = (s("version"), s("addon"));
+                let text = if r.get("enabled").and_then(Value::as_bool).unwrap_or(false) {
+                    crate::i18n::trf(
+                        "Blender add-on installed and enabled for Blender {version}. Open models from the TextureCraft tab in the 3D viewport's sidebar; restart Blender if it is open.",
+                        &[("version", &version)],
+                    )
+                } else {
+                    crate::i18n::trf(
+                        "Blender add-on written to {folder}. Enable it in Blender {version} under Edit ▸ Preferences ▸ Add-ons.",
+                        &[("folder", &folder), ("version", &version)],
+                    )
+                };
+                app.toast_long(text);
+            }
+        }
         _ => {
             if crate::windows::file_action(app, ctx, id) {
                 return;
@@ -186,7 +211,7 @@ pub fn menu_bar(app: &mut TextureCraftApp, ui: &mut egui::Ui) {
             ui.menu_button(tr(top), |ui| {
                 ui.set_min_width(220.0);
                 let mut current_sub: Option<&str> = None;
-                let items: Vec<Item> = CATALOG.iter().filter(|i| i.menu == top).copied().collect();
+                let items: Vec<Item> = CATALOG.iter().filter(|i| i.menu == top && !hidden(app, i)).copied().collect();
                 for item in &items {
                     if let Some(s) = item.sub {
                         if current_sub == Some(s) {

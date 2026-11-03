@@ -137,6 +137,14 @@ pub const TABLE: &[(&str, &str)] = &[
     ("Bevel", "ベベル"),
     ("Black", "黒"),
     ("Blend sharpness", "ブレンドのシャープさ"),
+    (
+        "Blender add-on installed and enabled for Blender {version}. Open models from the TextureCraft tab in the 3D viewport's sidebar; restart Blender if it is open.",
+        "Blender {version} 用のアドオンをインストールして有効にしました。3D ビューポートのサイドバーの TextureCraft タブからモデルを開けます。Blender を開いている場合は再起動してください。",
+    ),
+    (
+        "Blender add-on written to {folder}. Enable it in Blender {version} under Edit ▸ Preferences ▸ Add-ons.",
+        "Blender アドオンを {folder} に書き込みました。Blender {version} の 編集 ▸ プリファレンス ▸ アドオン で有効にしてください。",
+    ),
     ("Blending", "ブレンド"),
     ("Blending mode of the displayed channel", "表示中のチャンネルのブレンドモード"),
     ("Blur", "ぼかし"),
@@ -440,6 +448,7 @@ pub const TABLE: &[(&str, &str)] = &[
     ("Import images to use them in fills and masks", "画像をインポートして塗りつぶしやマスクで使用"),
     ("Import resources...", "リソースをインポート..."),
     ("Import MaterialX material...", "MaterialX マテリアルをインポート..."),
+    ("Install Blender add-on...", "Blender アドオンをインストール..."),
     ("MaterialX materials", "MaterialX マテリアル"),
     ("Import...", "インポート..."),
     ("Imported template \"{name}\"", "テンプレート「{name}」をインポートしました"),

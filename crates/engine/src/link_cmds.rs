@@ -214,9 +214,9 @@ pub fn materialcraft_tool(name: &str, env: &str) -> std::path::PathBuf {
     std::env::current_exe().ok().and_then(|e| Some(e.parent()?.join(&exe))).filter(|p| p.is_file()).unwrap_or_else(|| exe.into())
 }
 
-/// A command for a MaterialCraft executable that opens no console window.
+/// A command for an external program (MaterialCraft, Blender) that opens no console window.
 #[cfg(not(target_arch = "wasm32"))]
-fn quiet(program: &std::path::Path) -> std::process::Command {
+pub(crate) fn quiet(program: &std::path::Path) -> std::process::Command {
     #[allow(unused_mut)]
     let mut c = std::process::Command::new(program);
     #[cfg(windows)]
