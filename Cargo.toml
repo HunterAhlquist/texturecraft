@@ -50,6 +50,7 @@ gltf = { version = "1.4", default-features = false, features = ["import", "utils
 tobj = { version = "4", default-features = false }
 flate2 = "1"
 lz4_flex = { version = "0.11", default-features = false, features = ["safe-decode", "safe-encode"] }
+ruzstd = "0.9"
 quick-xml = "0.41"
 mikktspace = { version = "0.3", default-features = false, features = ["glam"] }
 proptest = "1"

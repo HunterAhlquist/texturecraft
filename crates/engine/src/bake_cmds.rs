@@ -39,7 +39,7 @@ pub fn specs() -> Vec<CommandSpec> {
             "Add high definition mesh",
             [],
             None,
-            "{path} — a mesh file (glb, gltf, fbx, dae, usd, usda, usdc, usdz, abc, obj, ply, stl; base color textures from glTF, embedded FBX media, usdz packages and image files next to a .gltf or USD layer feed the color map)",
+            "{path} — a mesh file (glb, gltf, fbx, dae, usd, usda, usdc, usdz, abc, blend, obj, ply, stl; base color textures from glTF, embedded FBX media, usdz packages, images packed in a .blend and image files next to a .gltf, USD layer, FBX or .blend feed the color map)",
             always,
             high_add
         ),

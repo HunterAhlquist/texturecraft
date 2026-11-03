@@ -17,7 +17,7 @@
       layers, masks, fills and effects painted straight onto the model.
     </p>
     <ul>
-      <li>Open glTF/GLB, FBX, COLLADA, USD (USDA/USDC/USDZ), Alembic, OBJ, PLY and STL meshes and save projects as .tcraft</li>
+      <li>Open glTF/GLB, FBX, COLLADA, USD (USDA/USDC/USDZ), Alembic, Blender, OBJ, PLY and STL meshes and save projects as .tcraft</li>
       <li>Paint base colour, roughness, metallic, normal and height together with PBR brushes</li>
       <li>Bake mesh maps and export texture sets as PNG, EXR, TGA, JPEG or TIFF</li>
       <li>Every action is a command, scriptable from a CLI and a JSON control channel</li>
@@ -63,6 +63,7 @@
     <mediatype>model/vnd.usda</mediatype>
     <mediatype>model/vnd.usdz+zip</mediatype>
     <mediatype>model/x-alembic</mediatype>
+    <mediatype>application/x-blender</mediatype>
     <mediatype>model/obj</mediatype>
     <mediatype>model/x-ply</mediatype>
     <mediatype>model/stl</mediatype>

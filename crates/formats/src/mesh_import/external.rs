@@ -1,6 +1,7 @@
 //! Meshes that keep part of their data in other files: a `.gltf`'s buffers and images, a loose
-//! USD layer's textures, an FBX's texture files. [`self_contained_mesh`] folds those files in, so a project stores the
-//! mesh as one file and imports it again from its bytes alone.
+//! USD layer's textures, an FBX's or a `.blend`'s texture files. [`self_contained_mesh`] folds
+//! those files in, so a project stores the mesh as one file and imports it again from its bytes
+//! alone.
 
 use base64::Engine as _;
 use serde_json::Value;
@@ -21,8 +22,8 @@ pub struct MeshFile {
 
 /// `bytes` of mesh `name` with the files it references folded in: a `.gltf`'s external buffers
 /// and images become data URIs, a `.usd`/`.usda`/`.usdc` layer whose materials use texture files
-/// becomes a `.usdz` package holding them, and an FBX whose base color textures are files becomes
-/// a package of it and them (still named `.fbx`). `read` gets a referenced file by its path below
+/// becomes a `.usdz` package holding them, and an FBX or a `.blend` whose base color textures are
+/// files becomes a package of it and them (still named `.fbx` / `.blend`). `read` gets a referenced file by its path below
 /// the mesh's folder (`/`-separated); files outside that folder (absolute paths, URLs, `..` above
 /// it) are not read. Other formats, and meshes that reference nothing, come back unchanged.
 pub fn self_contained_mesh(name: &str, bytes: Vec<u8>, read: &mut dyn FnMut(&str) -> Option<Vec<u8>>) -> Result<MeshFile> {
@@ -39,6 +40,11 @@ pub fn self_contained_mesh(name: &str, bytes: Vec<u8>, read: &mut dyn FnMut(&str
         "gltf" => (name.to_string(), inline_gltf(bytes, &mut found)?),
         "fbx" => {
             let (package, missing) = super::fbx::package(name, &bytes, &mut |asset| below(asset).and_then(|p| read(&p)))?;
+            warnings.extend(missing.into_iter().map(|asset| format!("{name}: {asset} was not found next to the mesh")));
+            (name.to_string(), package.unwrap_or(bytes))
+        }
+        "blend" => {
+            let (package, missing) = super::blend::package(name, &bytes, &mut |asset| below(asset).and_then(|p| read(&p)))?;
             warnings.extend(missing.into_iter().map(|asset| format!("{name}: {asset} was not found next to the mesh")));
             (name.to_string(), package.unwrap_or(bytes))
         }

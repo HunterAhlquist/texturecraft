@@ -133,7 +133,7 @@ takes a font family, not a path: it reads only the system's font folders.
 | `project_new` | `{mesh?, resolution?, name?, template?}` | Built-in mesh: material_ball, sphere, cube, rounded_cube, cylinder, torus, plane, crate; `template` names a project template (`project.templates`) |
 | `project_open` | `{path}` | `.tcraft` or a mesh file, relative to the read root |
 | `project_save` | `{path?}` | `.tcraft` (appended if missing), relative to the write root |
-| `mesh_import` | `{path, resolution?}` | New project from .glb/.gltf/.fbx/.dae/.usd/.usda/.usdc/.usdz/.abc/.obj/.ply/.stl; a .gltf's buffers and images and a loose USD layer's textures are read from its folder |
+| `mesh_import` | `{path, resolution?}` | New project from .glb/.gltf/.fbx/.dae/.usd/.usda/.usdc/.usdz/.abc/.blend/.obj/.ply/.stl; a .gltf's buffers and images, a loose USD layer's textures and a .blend's or FBX's texture files are read from its folder |
 | `mesh_reimport` | `{path?, preserveStrokes?}` | Reimport the mesh from a file, or (no path) from the project's own copy; bridge mode supports only the latter |
 | `mesh_export` | `{path, format?}` | The mesh as obj, glb, usda, usdc or usdz below the write root (obj: its .mtl and textures, usda / usdc: textures next to it) → `{path, textures?}` |
 | `bake_mesh_add` | `{path, cage?}` | Add a high-definition mesh for baking, or set the cage → `{name, meshes}` |

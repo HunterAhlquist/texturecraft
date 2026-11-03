@@ -3,7 +3,7 @@
 //! Everything TextureCraft reads from or writes to disk:
 //!
 //! - [`mesh_import`]: glTF/GLB, FBX (6.x and 7.x, binary and ASCII), COLLADA, USD (usda, usdc,
-//!   usdz), Alembic (Ogawa), OBJ, PLY and STL into a
+//!   usdz), Alembic (Ogawa), Blender (`.blend`, 2.4 to 5.x), OBJ, PLY and STL into a
 //!   [`texturecraft_geom::Mesh`] (world space in meters, Y up, glTF UV convention, one submesh
 //!   per material), with an automatic unwrap ([`texturecraft_geom::unwrap::auto_unwrap`]) when
 //!   the file has no UVs and a [`MeshReport`].

@@ -11,7 +11,7 @@
   UpgradeCode is TextureCraft's for good: generated once (2026-10-14), never change it, or new
   versions install beside old ones instead of replacing them.
 -->
-<?define MeshExtensions = glb;gltf;fbx;dae;usd;usda;usdc;usdz;abc;obj;ply;stl ?>
+<?define MeshExtensions = glb;gltf;fbx;dae;usd;usda;usdc;usdz;abc;blend;obj;ply;stl ?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Package
       Name="TextureCraft"

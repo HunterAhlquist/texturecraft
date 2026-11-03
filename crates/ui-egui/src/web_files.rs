@@ -17,7 +17,7 @@ use crate::TextureCraftApp;
 use crate::i18n::{tr, trf};
 
 /// What File › Open accepts: projects and meshes.
-pub const OPEN_EXTS: &[&str] = &[PROJECT_EXT, "glb", "gltf", "fbx", "dae", "usd", "usda", "usdc", "usdz", "abc", "obj", "ply", "stl"];
+pub const OPEN_EXTS: &[&str] = &[PROJECT_EXT, "glb", "gltf", "fbx", "dae", "usd", "usda", "usdc", "usdz", "abc", "blend", "obj", "ply", "stl"];
 
 /// Images File › Import resources accepts.
 pub const IMAGE_EXTS: &[&str] = &["png", "jpg", "jpeg", "tga", "tif", "tiff", "bmp", "webp", "exr", "hdr"];

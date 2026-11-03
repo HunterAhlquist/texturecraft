@@ -176,6 +176,22 @@
       </dict>
     </dict>
     <dict>
+      <!-- Blender's own identifier, so files keep Blender's type when it is installed. -->
+      <key>UTTypeIdentifier</key>
+      <string>org.blenderfoundation.blender.file</string>
+      <key>UTTypeDescription</key>
+      <string>Blender File</string>
+      <key>UTTypeConformsTo</key>
+      <array><string>public.data</string></array>
+      <key>UTTypeTagSpecification</key>
+      <dict>
+        <key>public.filename-extension</key>
+        <array><string>blend</string></array>
+        <key>public.mime-type</key>
+        <array><string>application/x-blender</string></array>
+      </dict>
+    </dict>
+    <dict>
       <key>UTTypeIdentifier</key>
       <string>public.geometry-definition-format</string>
       <key>UTTypeDescription</key>
@@ -251,6 +267,7 @@
         <string>com.pixar.universal-scene-description</string>
         <string>com.pixar.universal-scene-description-mobile</string>
         <string>ai.storyteller.texturecraft.alembic</string>
+        <string>org.blenderfoundation.blender.file</string>
         <string>public.geometry-definition-format</string>
         <string>public.polygon-file-format</string>
         <string>public.standard-tesselated-geometry-format</string>

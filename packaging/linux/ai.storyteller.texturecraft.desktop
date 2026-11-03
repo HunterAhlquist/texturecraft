@@ -10,5 +10,5 @@ Terminal=false
 StartupNotify=true
 StartupWMClass=texturecraft
 Categories=Graphics;3DGraphics;
-Keywords=texture;paint;pbr;material;3d;mesh;bake;gltf;fbx;usd;
-MimeType=application/x-texturecraft;model/gltf-binary;model/gltf+json;model/x-fbx;model/vnd.collada+xml;model/x-usd;model/vnd.usda;model/vnd.usdz+zip;model/x-alembic;model/obj;model/x-ply;model/stl;
+Keywords=texture;paint;pbr;material;3d;mesh;bake;gltf;fbx;usd;blender;
+MimeType=application/x-texturecraft;model/gltf-binary;model/gltf+json;model/x-fbx;model/vnd.collada+xml;model/x-usd;model/vnd.usda;model/vnd.usdz+zip;model/x-alembic;application/x-blender;model/obj;model/x-ply;model/stl;

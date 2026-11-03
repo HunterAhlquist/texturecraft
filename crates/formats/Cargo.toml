@@ -1,6 +1,6 @@
 [package]
 name = "texturecraft-formats"
-description = "TextureCraft file formats: mesh import (glTF, FBX, COLLADA, USD, OBJ, PLY, STL), glTF/USD/OBJ mesh export, texture export presets, the .tcraft project file"
+description = "TextureCraft file formats: mesh import (glTF, FBX, COLLADA, USD, Alembic, Blender, OBJ, PLY, STL), glTF/USD/OBJ mesh export, texture export presets, the .tcraft project file"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -17,6 +17,8 @@ image = { workspace = true }
 gltf = { workspace = true }
 tobj = { workspace = true }
 flate2 = { workspace = true }
+# Blender saves compressed with zstd (3.0 and newer); pure Rust, no unsafe.
+ruzstd = { workspace = true }
 lz4_flex = { workspace = true }
 half = { workspace = true }
 quick-xml = { workspace = true }

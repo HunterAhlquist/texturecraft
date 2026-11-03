@@ -16,7 +16,8 @@ L1  compose   the layer-stack compositor (CPU, per tile, rayon), patterns, displ
 L1  bake      AO, curvature, thickness, world normal, position, ID, normal and height bakers
               (rays batched through a Tracer: CPU oracle or the render crate's GPU baker)
 L2  paint     strokes -> stamps, camera visibility, texture-space rasterization, commit
-L2  formats   mesh import (glTF/GLB, OBJ, PLY, STL), texture export presets, .tcraft projects,
+L2  formats   mesh import (glTF/GLB, FBX, COLLADA, USD, Alembic, Blender, OBJ, PLY, STL), texture
+              export presets, .tcraft projects,
               image resources
 L3  engine    Session (document + caches + history + tools), the command registry
 L3  render    wgpu viewport renderer (PBR, IBL, post effects, UV view), headless renders,

@@ -60,6 +60,13 @@
     </magic>
     <glob pattern="*.abc"/>
   </mime-type>
+  <mime-type type="application/x-blender">
+    <comment>Blender scene</comment>
+    <magic priority="60">
+      <match type="string" value="BLENDER" offset="0"/>
+    </magic>
+    <glob pattern="*.blend"/>
+  </mime-type>
   <mime-type type="model/obj">
     <comment>Wavefront OBJ model</comment>
     <sub-class-of type="text/plain"/>

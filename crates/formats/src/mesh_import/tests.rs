@@ -381,7 +381,8 @@ fn malformed_meshes_are_errors() {
     hammer("x.ply", &ply_binary(true));
     hammer("x.stl", STL_ASCII.as_bytes());
     hammer("x.stl", &stl_binary());
-    assert!(matches!(import_mesh_bytes("x.blend", b"whatever"), Err(FormatError::Unsupported(_))));
+    assert!(matches!(import_mesh_bytes("x.blend", b"whatever"), Err(FormatError::Malformed { .. })));
+    assert!(matches!(import_mesh_bytes("x.max", b"whatever"), Err(FormatError::Unsupported(_))));
     // Hostile counts never allocate their claim.
     let huge = "ply\nformat binary_little_endian 1.0\nelement vertex 4000000000\nproperty float x\nproperty float y\nproperty float z\nend_header\n";
     assert!(import_mesh_bytes("h.ply", huge.as_bytes()).is_err());

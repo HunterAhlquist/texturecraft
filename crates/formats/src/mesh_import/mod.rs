@@ -1,12 +1,13 @@
-//! Mesh import: glTF/GLB, FBX, COLLADA, USD (usda, usdc, usdz), Alembic, OBJ, PLY and STL into a
-//! world-space [`Mesh`] with one submesh per material and part (glTF node, OBJ object, FBX
-//! model, COLLADA node, USD Mesh prim, Alembic PolyMesh; unnamed parts take the file stem), materials contiguous,
-//! glTF UV convention (origin top-left, v down),
-//! normals (computed when missing), vertex colors (glTF, OBJ, PLY), UVs (auto-unwrapped when
-//! missing) and MikkTSpace tangents. glTF, FBX, COLLADA and USD cameras come along as the
-//! project's camera list.
+//! Mesh import: glTF/GLB, FBX, COLLADA, USD (usda, usdc, usdz), Alembic, Blender (`.blend`),
+//! OBJ, PLY and STL into a world-space [`Mesh`] with one submesh per material and part (glTF
+//! node, OBJ object, FBX model, COLLADA node, USD Mesh prim, Alembic PolyMesh, Blender object;
+//! unnamed parts take the file stem), materials contiguous, glTF UV convention (origin
+//! top-left, v down), normals (computed when missing), vertex colors (glTF, OBJ, PLY, Blender),
+//! UVs (auto-unwrapped when missing) and MikkTSpace tangents. glTF, FBX, COLLADA, USD and
+//! Blender cameras come along as the project's camera list.
 
 mod abc;
+mod blend;
 mod dae;
 mod external;
 mod fbx;
@@ -44,7 +45,7 @@ const UNWRAP_PADDING: f32 = 4.0;
 const REPORT_RESOLUTION: u32 = 512;
 
 /// File extensions [`import_mesh_bytes`] understands.
-pub const MESH_EXTENSIONS: [&str; 12] = ["gltf", "glb", "fbx", "dae", "usd", "usda", "usdc", "usdz", "abc", "obj", "ply", "stl"];
+pub const MESH_EXTENSIONS: [&str; 13] = ["gltf", "glb", "fbx", "dae", "usd", "usda", "usdc", "usdz", "abc", "blend", "obj", "ply", "stl"];
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ImportedMesh {
@@ -269,7 +270,7 @@ fn extension(file_name: &str) -> String {
 
 /// Import a mesh from bytes; the format comes from `file_name`'s extension. A `.gltf` must be
 /// self-contained (see [`self_contained_mesh`]); OBJ material libraries are not read (usemtl
-/// names are).
+/// names are); a `.blend` is read as Blender saved it (compressed or not), see [`blend`].
 pub fn import_mesh_bytes(file_name: &str, bytes: &[u8]) -> Result<ImportedMesh> {
     finish(read(file_name, bytes)?)
 }
@@ -359,6 +360,7 @@ fn read(file_name: &str, bytes: &[u8]) -> Result<RawMesh> {
         "dae" => dae::read(bytes)?,
         "usd" | "usda" | "usdc" | "usdz" => usd::read(file_name, bytes)?,
         "abc" => abc::read(bytes)?,
+        "blend" => blend::read(bytes)?,
         "obj" => obj::read(bytes)?,
         "ply" => ply::read(bytes)?,
         "stl" => stl::read(bytes)?,

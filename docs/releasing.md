@@ -120,7 +120,7 @@ scripts smoke-test `texturecraft-cli --version`, and the Linux job also runs the
 |---|---|
 | Bundle / app id | `ai.storyteller.texturecraft` |
 | Project format | `.tcraft`, MIME `application/x-texturecraft`, UTI `ai.storyteller.texturecraft.project` (owned) |
-| Also opens | `.glb .gltf .fbx .dae .usd .usda .usdc .usdz .abc .obj .ply .stl` (formats `mesh_import::MESH_EXTENSIONS`; "Open with" only, never the default app). Declared in `texturecraft.wxs`, `Info.plist.in`, the `.desktop` file, `mime.xml` and the AppStream metainfo: keep all five in step |
+| Also opens | `.glb .gltf .fbx .dae .usd .usda .usdc .usdz .abc .blend .obj .ply .stl` (formats `mesh_import::MESH_EXTENSIONS`; "Open with" only, never the default app). Declared in `texturecraft.wxs`, `Info.plist.in`, the `.desktop` file, `mime.xml` and the AppStream metainfo: keep all five in step |
 | WiX UpgradeCode | `7E670E60-BB22-4E6B-8749-DD3FD4CA8979`, never change it |
 | Flathub manifest | `packaging/linux/flatpak/ai.storyteller.TextureCraft.yml` (release bundle: `…TextureCraft.bundle.yml`) |
 | macOS minimum | 11.0 (`LSMinimumSystemVersion`, `MACOSX_DEPLOYMENT_TARGET`) |
