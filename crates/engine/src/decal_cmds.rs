@@ -16,7 +16,7 @@ pub fn specs() -> Vec<CommandSpec> {
             "Add decal",
             [],
             None,
-            "{image: resource name, x?, y?: viewport pixels (default: the view center), viewport?: [w,h] | position?: [x,y,z], normal?: [x,y,z], up?: [x,y,z] (the image's up; default the view's up, or the view direction when that is along the normal), size?: height | [w,h] (world units; default a quarter of the mesh), rotation?: degrees, depth?, name?} — a fill layer projecting the image from a frame placed on the surface; seen from the front, the image reads the right way round",
+            "{image: resource name, x?, y?: viewport pixels (default: the view center), viewport?: [w,h] | position?: [x,y,z], normal?: [x,y,z], up?: [x,y,z] (the image's up; default the view's up, or the view direction when that is along the normal), size?: height | [w,h] (world units; default a quarter of the mesh), rotation?: degrees, depth?, cutout?: image resource whose brightness cuts the decal out (default: the image's alpha), name?} — a fill layer projecting the image from a frame placed on the surface; seen from the front, the image reads the right way round",
             always,
             add
         ),
@@ -25,7 +25,7 @@ pub fn specs() -> Vec<CommandSpec> {
             "Edit decal",
             [],
             None,
-            "{layer?, x?, y?, viewport? | position?, normal? (re-place it), up?: [x,y,z], size?: height | [w,h], rotation?: degrees, offset?: [right, up] (world units from where it was placed), depth?, image?, merge?: true continues the previous Edit decal undo step (drags)}",
+            "{layer?, x?, y?, viewport? | position?, normal? (re-place it), up?: [x,y,z], size?: height | [w,h], rotation?: degrees, offset?: [right, up] (world units from where it was placed), depth?, image?, cutout?: image resource | null (back to the image's alpha), merge?: true continues the previous Edit decal undo step (drags)}",
             has_layer,
             set
         ),
@@ -93,15 +93,15 @@ fn decal_up(s: &Session, cmd: &str, p: &Value, normal: Vec3) -> Result<Vec3> {
     Ok(if up.normalize_or_zero().cross(normal).length_squared() > 1e-4 { up } else { to_world.transform_vector3(Vec3::NEG_Z) })
 }
 
-fn add(s: &mut Session, p: &Value) -> Result<Value> {
-    let cmd = "layer.add.decal";
-    let image = strp(p, "image").ok_or_else(|| bad(cmd, "`image` is required"))?.to_string();
-    let img = s.images.get(&image).ok_or_else(|| bad(cmd, format!("no image resource `{image}` (import it first)")))?;
-    let aspect = img.width as f32 / img.height.max(1) as f32;
+/// A new decal frame from the placement params of `layer.add.decal` (`x`/`y`/`viewport` or
+/// `position`/`normal`, `up`, `size`, `rotation`, `depth`) for an image `aspect` wide per unit
+/// of height.
+pub(crate) fn new_decal(s: &Session, cmd: &str, p: &Value, aspect: f32) -> Result<Decal> {
+    let aspect = if aspect.is_finite() && aspect > 0.0 { aspect.clamp(1e-3, 1e3) } else { 1.0 };
     let (center, normal) = placement(s, cmd, p, false)?.ok_or_else(|| bad(cmd, "no placement"))?;
     let diag = mesh_size(s);
     let size = size_param(p, aspect, diag).unwrap_or([diag * 0.25 * aspect, diag * 0.25]);
-    let decal = Decal {
+    Ok(Decal {
         center: center.to_array(),
         normal: normal.to_array(),
         up: decal_up(s, cmd, p, normal)?.to_array(),
@@ -109,14 +109,44 @@ fn add(s: &mut Session, p: &Value) -> Result<Value> {
         rotation: f32p(p, "rotation").unwrap_or(0.0).rem_euclid(360.0),
         offset: [0.0; 2],
         depth: f32p(p, "depth").map_or(size[0].max(size[1]) * 0.5, |d| d.clamp(diag * 1e-4, diag * 10.0)),
-    };
+    })
+}
+
+impl Session {
+    /// Resolve the placement params of `layer.add.decal` (`x`/`y`/`viewport`, the view center by
+    /// default, or `position`/`normal`, plus `up`) to `{position, normal, up}` at the current
+    /// camera, so a decal can be placed later (after a download) where it was asked for now.
+    pub fn decal_placement(&self, p: &Value) -> Result<Value> {
+        let cmd = "layer.add.decal";
+        let (position, normal) = placement(self, cmd, p, false)?.ok_or_else(|| bad(cmd, "no placement"))?;
+        let up = decal_up(self, cmd, p, normal)?;
+        Ok(json!({ "position": position.to_array(), "normal": normal.to_array(), "up": up.to_array() }))
+    }
+}
+
+/// The `cutout` param: an image resource name (checked), or None when absent.
+fn cutout_param(s: &Session, cmd: &str, p: &Value) -> Result<Option<String>> {
+    match strp(p, "cutout") {
+        Some(name) if s.doc.resources.contains_key(name) => Ok(Some(name.to_string())),
+        Some(name) => Err(bad(cmd, format!("no image resource `{name}` (import it first)"))),
+        None => Ok(None),
+    }
+}
+
+fn add(s: &mut Session, p: &Value) -> Result<Value> {
+    let cmd = "layer.add.decal";
+    let image = strp(p, "image").ok_or_else(|| bad(cmd, "`image` is required"))?.to_string();
+    let img = s.images.get(&image).ok_or_else(|| bad(cmd, format!("no image resource `{image}` (import it first)")))?;
+    let aspect = img.width as f32 / img.height.max(1) as f32;
+    let decal = new_decal(s, cmd, p, aspect)?;
+    let cutout = cutout_param(s, cmd, p)?;
     let ts = s.ts();
     let base =
         strp(p, "name").map(str::to_string).unwrap_or_else(|| std::path::Path::new(&image).file_stem().and_then(|n| n.to_str()).unwrap_or("Decal").to_string());
     let name = s.doc.project.next_layer_name(ts, &base);
     let id = s.edit("Add decal", |s| {
         let id = s.doc.project.alloc_id();
-        let mut fill = Fill { projection: Projection::Decal(decal), ..Fill::default() };
+        let mut fill = Fill { projection: Projection::Decal(decal), cutout, ..Fill::default() };
         fill.sources.insert(Channel::BaseColor, Source::image(image.clone()));
         crate::layer_cmds::insert_selected(s, Layer::new(id, name, LayerKind::Fill(fill), &[Channel::BaseColor]))
     })?;
@@ -162,11 +192,20 @@ fn set(s: &mut Session, p: &Value) -> Result<Value> {
     {
         return Err(bad(cmd, format!("no image resource `{name}`")));
     }
+    // `cutout: null` removes it; a name sets it.
+    let cutout = match p.get("cutout") {
+        Some(Value::Null) => Some(None),
+        Some(_) => Some(Some(cutout_param(s, cmd, p)?.ok_or_else(|| bad(cmd, "`cutout` must be an image resource name or null"))?)),
+        None => None,
+    };
     s.edit("Edit decal", |s| {
         if let LayerKind::Fill(f) = &mut s.doc.project.layer_mut(id)?.kind {
             f.projection = Projection::Decal(d);
             if let Some(name) = image {
                 f.sources.insert(Channel::BaseColor, Source::image(name));
+            }
+            if let Some(c) = cutout {
+                f.cutout = c;
             }
         }
         Ok(())

@@ -1115,4 +1115,15 @@ pub const TABLE: &[(&str, &str)] = &[
     ("Hide Others", "Nascondi altre"),
     ("Show All", "Mostra tutte"),
     ("Quit TextureCraft", "Esci da TextureCraft"),
+    ("Decals", "Decal"),
+    (
+        "Click: place as a decal at the center of the 3D view, or drag it onto the 3D view. Right-click: other resolutions",
+        "Clic: posiziona come decal al centro della vista 3D, o trascinalo nella vista 3D. Clic destro: altre risoluzioni",
+    ),
+    ("Cutout", "Ritaglio"),
+    ("Image alpha", "Alfa dell'immagine"),
+    (
+        "What shapes the decal: its image's alpha, or an image whose brightness shows it (an opacity map)",
+        "Cosa dà forma al decal: l'alfa della sua immagine, o un'immagine la cui luminosità lo mostra (una mappa di opacità)",
+    ),
 ];

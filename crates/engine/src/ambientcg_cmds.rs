@@ -1,7 +1,8 @@
 //! ambientCG (<https://ambientcg.com>, CC0 materials and HDRIs) in the engine.
 //!
-//! - [`Session::import_ambientcg_zip`] turns a downloaded zip into a fill layer (a material) or
-//!   the viewport environment (an HDRI). The UI downloads asynchronously and calls it.
+//! - [`Session::import_ambientcg_zip`] turns a downloaded zip into a fill layer (a material), a
+//!   decal layer cut out by its opacity map (a decal) or the viewport environment (an HDRI).
+//!   The UI downloads asynchronously and calls it.
 //! - `assets.ambientcg.search` and `assets.ambientcg.import` do the same for agents (control
 //!   channel, CLI, MCP): they block while they fetch.
 //!
@@ -13,7 +14,9 @@ use std::cell::RefCell;
 use std::sync::{Arc, OnceLock};
 
 use serde_json::{Value, json};
+use texturecraft_core::{Channel, Projection, Source};
 use texturecraft_formats::ambientcg::{self, Asset, Kind, Query, Sort};
+use texturecraft_formats::materialx_read::Value as Mtlx;
 
 use crate::commands::{CommandSpec, always, bad, strp};
 use crate::{EngineError, Result, Session, cmd};
@@ -44,7 +47,7 @@ pub fn specs() -> Vec<CommandSpec> {
             "Search ambientCG",
             [],
             None,
-            "{query?: keywords, type?: material|hdri (material), sort?: popular|latest|downloads|alphabet, limit?: 1-100 (30), offset?} → {total, assets: [{id, title, type, tags, maps, page, thumbnail, downloads: [{attributes, size}]}]}: ambientCG's CC0 library (needs network access)",
+            "{query?: keywords, type?: material|decal|hdri (material), sort?: popular|latest|downloads|alphabet, limit?: 1-100 (30), offset?} → {total, assets: [{id, title, type, tags, maps, page, thumbnail, downloads: [{attributes, size}]}]}: ambientCG's CC0 library (needs network access)",
             always,
             search
         ),
@@ -53,7 +56,7 @@ pub fn specs() -> Vec<CommandSpec> {
             "Import from ambientCG",
             [],
             None,
-            "{id, resolution?: 1|2|4|8 (K, default 2), format?: jpg|png (jpg)} → a material becomes a fill layer {layer, channels, resources, warnings, source}; an HDRI becomes the environment {environment, resource, source} (needs network access)",
+            "{id, resolution?: 1|2|4|8 (K, default 2), format?: jpg|png (jpg), and for decals the placement of layer.add.decal: x?, y?, viewport? | position?, normal?, up?, size?, rotation?, depth?} → a material becomes a fill layer {layer, channels, resources, warnings, source}; a decal a decal layer cut out by its opacity map {layer, channels, resources, cutout, decal, warnings, source}; an HDRI the environment {environment, resource, source} (needs network access)",
             always,
             import
         ),
@@ -76,7 +79,7 @@ fn asset_json(a: &Asset) -> Value {
 fn search(_: &mut Session, p: &Value) -> Result<Value> {
     let cmd = "assets.ambientcg.search";
     let kind = match strp(p, "type") {
-        Some(t) => Kind::from_id(t).ok_or_else(|| bad(cmd, format!("unknown type `{t}` (material or hdri)")))?,
+        Some(t) => Kind::from_id(t).ok_or_else(|| bad(cmd, format!("unknown type `{t}` (material, decal or hdri)")))?,
         None => Kind::Material,
     };
     let sort = match strp(p, "sort") {
@@ -111,7 +114,7 @@ fn import(s: &mut Session, p: &Value) -> Result<Value> {
     let reply = fetch(cmd, &ambientcg::asset_url(id), ambientcg::MAX_REPLY as u64)?;
     let page = ambientcg::parse_page(&reply).map_err(|e| bad(cmd, e.to_string()))?;
     let asset = page.assets.into_iter().find(|a| a.id == id).ok_or_else(|| bad(cmd, format!("ambientCG has no asset `{id}`")))?;
-    let kind = Kind::from_id(&asset.kind).ok_or_else(|| bad(cmd, format!("{id} is a {} (only materials and HDRIs can be imported)", asset.kind)))?;
+    let kind = Kind::from_id(&asset.kind).ok_or_else(|| bad(cmd, format!("{id} is a {} (only materials, decals and HDRIs can be imported)", asset.kind)))?;
     let download = asset.download(resolution, &format).ok_or_else(|| bad(cmd, format!("{id} has no download")))?.clone();
     if download.size > ambientcg::MAX_DOWNLOAD {
         return Err(bad(
@@ -120,14 +123,16 @@ fn import(s: &mut Session, p: &Value) -> Result<Value> {
         ));
     }
     let bytes = fetch(cmd, &download.url, ambientcg::MAX_DOWNLOAD)?;
-    s.import_ambientcg_zip(kind, &asset.id, &asset.title, &download.attributes, &bytes)
+    s.import_ambientcg_zip(kind, &asset.id, &asset.title, &download.attributes, &bytes, p)
 }
 
 impl Session {
     /// Import a downloaded ambientCG zip: a material becomes one fill layer above the selection
-    /// (one undo step), an HDRI becomes a resource and the viewport environment. `id`, `title`
-    /// and `attributes` (`2K-JPG`) describe the asset; the reply names them under `source`.
-    pub fn import_ambientcg_zip(&mut self, kind: Kind, id: &str, title: &str, attributes: &str, bytes: &[u8]) -> Result<Value> {
+    /// (one undo step); a decal becomes a decal layer there, placed by `place` (the placement
+    /// params of `layer.add.decal`; `{}` is the center of the view) and cut out by its opacity
+    /// map; an HDRI becomes a resource and the viewport environment. `id`, `title` and
+    /// `attributes` (`2K-JPG`) describe the asset; the reply names them under `source`.
+    pub fn import_ambientcg_zip(&mut self, kind: Kind, id: &str, title: &str, attributes: &str, bytes: &[u8], place: &Value) -> Result<Value> {
         let source = json!({"site": "ambientCG", "id": id, "title": title, "download": attributes, "license": ambientcg::LICENSE, "page": format!("{}/a/{id}", ambientcg::SITE_URL)});
         let mut reply = match kind {
             Kind::Material => {
@@ -138,6 +143,7 @@ impl Session {
                 let name = z.material.name.clone();
                 self.import_material(z.material, Some(&name), &load)?
             }
+            Kind::Decal => self.import_decal(title, bytes, place)?,
             Kind::Hdri => {
                 let (file, image) = ambientcg::read_hdri_zip(bytes).map_err(|e| EngineError::Other(format!("{title}: {e}")))?;
                 let name = self.import_resource_bytes(&file, image)?;
@@ -150,5 +156,44 @@ impl Session {
             o.insert("source".into(), source);
         }
         Ok(reply)
+    }
+}
+
+impl Session {
+    /// A decal zip as a decal layer: its opacity map is the cutout, its other maps the channels.
+    fn import_decal(&mut self, title: &str, bytes: &[u8], place: &Value) -> Result<Value> {
+        let cmd = "assets.ambientcg.import";
+        let mut z = ambientcg::read_material_zip(bytes, title).map_err(|e| EngineError::Other(format!("{title}: {e}")))?;
+        // The opacity map shapes the decal; it is not painted into the surface's opacity.
+        let opacity = z.material.channels.iter().position(|(c, _)| *c == Channel::Opacity).map(|i| z.material.channels.remove(i).1);
+        let name = z.material.name.clone();
+        let files = RefCell::new(std::mem::take(&mut z.files));
+        let load = |f: &str| files.borrow_mut().remove(f).ok_or_else(|| format!("{f} is not in the zip"));
+        let mut p = self.prepare_material(z.material, &load);
+        if p.channels.is_empty() {
+            return Err(bad(cmd, format!("{title}: nothing to import ({})", p.warnings.join("; "))));
+        }
+        match opacity {
+            Some(Mtlx::Image(file)) => match p.image(self, &file, &load) {
+                Ok(n) => p.fill.cutout = Some(n),
+                Err(e) => p.warnings.push(format!("the opacity map {file} was not read ({e}): the decal covers its whole frame")),
+            },
+            _ => p.warnings.push("no opacity map: the decal covers its whole frame".into()),
+        }
+        let aspect = match p.fill.sources.get(&Channel::BaseColor) {
+            Some(Source::Image { name, .. }) => p.decoded(name).map(|i| i.width as f32 / i.height.max(1) as f32),
+            _ => None,
+        };
+        let decal = crate::decal_cmds::new_decal(self, cmd, place, aspect.unwrap_or(1.0))?;
+        p.fill.projection = Projection::Decal(decal);
+        let id = self.insert_prepared(&p, name, "Import ambientCG decal")?;
+        Ok(json!({
+            "layer": id.0,
+            "channels": p.channels.iter().map(|c| c.id()).collect::<Vec<_>>(),
+            "resources": p.added.iter().map(|(n, _)| n.clone()).collect::<Vec<_>>(),
+            "cutout": p.fill.cutout,
+            "decal": decal,
+            "warnings": p.warnings,
+        }))
     }
 }

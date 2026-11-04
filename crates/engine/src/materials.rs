@@ -210,7 +210,7 @@ impl Builder<'_> {
         let id = self.p.alloc_id();
         let enabled: Vec<Channel> = sources.iter().map(|(c, _)| *c).filter(|c| self.channels.contains(c)).collect();
         let projection = Projection::Triplanar { scale: 1.0, sharpness: 8.0, offset: [0.0; 3] };
-        Layer::new(id, name, LayerKind::Fill(Fill { sources: sources.into_iter().collect(), projection, link: None }), &enabled)
+        Layer::new(id, name, LayerKind::Fill(Fill { sources: sources.into_iter().collect(), projection, link: None, cutout: None }), &enabled)
     }
 
     /// A fill masked by smart mask preset `mask` (inverted: present where the preset is not).

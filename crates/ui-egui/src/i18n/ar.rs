@@ -1063,4 +1063,15 @@ pub const TABLE: &[(&str, &str)] = &[
     ("Hide Others", "إخفاء الآخرين"),
     ("Show All", "إظهار الكل"),
     ("Quit TextureCraft", "إنهاء TextureCraft"),
+    ("Decals", "الملصقات"),
+    (
+        "Click: place as a decal at the center of the 3D view, or drag it onto the 3D view. Right-click: other resolutions",
+        "نقرة: وضع كملصق في وسط العرض ثلاثي الأبعاد، أو اسحبه إلى العرض ثلاثي الأبعاد. نقرة يمنى: دقات أخرى",
+    ),
+    ("Cutout", "القص"),
+    ("Image alpha", "ألفا الصورة"),
+    (
+        "What shapes the decal: its image's alpha, or an image whose brightness shows it (an opacity map)",
+        "ما يحدد شكل الملصق: ألفا صورته، أو صورة يُظهره سطوعها (خريطة عتامة)",
+    ),
 ];

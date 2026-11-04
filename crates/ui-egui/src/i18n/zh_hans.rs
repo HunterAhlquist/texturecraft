@@ -1010,4 +1010,15 @@ pub const TABLE: &[(&str, &str)] = &[
     ("Hide Others", "隐藏其他"),
     ("Show All", "全部显示"),
     ("Quit TextureCraft", "退出 TextureCraft"),
+    ("Decals", "贴花"),
+    (
+        "Click: place as a decal at the center of the 3D view, or drag it onto the 3D view. Right-click: other resolutions",
+        "单击：作为贴花放置在 3D 视图中央，或将其拖到 3D 视图中。右键单击：其他分辨率",
+    ),
+    ("Cutout", "裁切"),
+    ("Image alpha", "图像 Alpha"),
+    (
+        "What shapes the decal: its image's alpha, or an image whose brightness shows it (an opacity map)",
+        "决定贴花形状的内容：其图像的 Alpha，或以亮度显示贴花的图像（不透明度贴图）",
+    ),
 ];

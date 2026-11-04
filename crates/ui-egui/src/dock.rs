@@ -518,7 +518,7 @@ fn layer_row(app: &mut TextureCraftApp, ui: &mut Ui, layer: &Layer, depth: usize
             app.run("layer.select", json!({"layer": layer.id.0}));
             app.run("effect.add.filter", json!({"layer": layer.id.0, "filter": f, "target": "content"}));
         }
-        Some(Asset::Alpha(_) | Asset::Texture(_)) | None => {}
+        Some(Asset::Alpha(_) | Asset::Texture(_) | Asset::AmbientCgDecal(_)) | None => {}
     }
     resp.context_menu(|ui| layer_context_menu(app, ui, layer));
 }
@@ -1575,7 +1575,7 @@ fn fill_editor(app: &mut TextureCraftApp, ui: &mut Ui, fill: &Fill, base: &Value
     use texturecraft_engine::core::Projection;
     let salt = base.to_string();
     if let Projection::Decal(d) = &fill.projection {
-        decal_editor(app, ui, d, reader);
+        decal_editor(app, ui, d, fill.cutout.as_deref(), reader);
     } else {
         projection_editor(app, ui, fill, base);
     }
@@ -1691,7 +1691,7 @@ fn axis_combo(ui: &mut Ui, axis: u8) -> Option<u8> {
 }
 
 /// A decal's frame: place it with a click in the 3D view, then size, turn and shift it.
-fn decal_editor(app: &mut TextureCraftApp, ui: &mut Ui, d: &Decal, layer: LayerId) {
+fn decal_editor(app: &mut TextureCraftApp, ui: &mut Ui, d: &Decal, cutout: Option<&str>, layer: LayerId) {
     let tk = Tokens::get(ui.ctx());
     ui.label(caption(tr("Decal")));
     let placing = app.placing_decal == Some(layer);
@@ -1716,6 +1716,27 @@ fn decal_editor(app: &mut TextureCraftApp, ui: &mut Ui, d: &Decal, layer: LayerI
     }
     if let Some(merge) = edit {
         app.run("layer.decal.set", json!({"layer": layer.0, "size": [v[0], v[1]], "rotation": v[2], "offset": [v[3], v[4]], "depth": v[5], "merge": merge}));
+    }
+    // What cuts the decal out: the base color image's alpha, or a grayscale image (an opacity map).
+    let alpha = tr("Image alpha");
+    let mut pick: Option<Option<String>> = None;
+    ui.horizontal(|ui| {
+        ui.label(tr("Cutout"));
+        egui::ComboBox::from_id_salt(("decal_cutout", layer.0)).width(150.0).selected_text(cutout.unwrap_or(alpha)).show_ui(ui, |ui| {
+            if ui.selectable_label(cutout.is_none(), alpha).clicked() {
+                pick = Some(None);
+            }
+            for name in app.session.doc.resources.keys() {
+                if app.session.images.contains_key(name) && ui.selectable_label(cutout == Some(name.as_str()), name).clicked() {
+                    pick = Some(Some(name.clone()));
+                }
+            }
+        });
+    })
+    .response
+    .on_hover_text(tr("What shapes the decal: its image's alpha, or an image whose brightness shows it (an opacity map)"));
+    if let Some(c) = pick {
+        app.run("layer.decal.set", json!({"layer": layer.0, "cutout": c}));
     }
     ui.label(
         RichText::new(tr("The image's alpha cuts the decal's shape; faces turned away and surfaces beyond its depth stay clear."))

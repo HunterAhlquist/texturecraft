@@ -133,4 +133,24 @@ fn ambientcg_snapshot() {
     eprintln!("{} results, first: {:?}", results.len(), results.first());
     assert!(!results.is_empty(), "the first search found nothing");
     save(&mut h, &dir, "shelf-ambientcg");
+    // Decals: a search for road markings, then one placed at the center of the 3D view (the
+    // agents' command: the same import as a click, waited for).
+    h.state_mut().ui.ambientcg.kind = "decal".into();
+    h.state_mut().ui.ambientcg.query = "road lines".into();
+    h.state_mut().ui.ambientcg.resolution = 1;
+    h.state_mut().ambientcg = texturecraft_ui_egui::ambientcg::Browser::default();
+    let start = std::time::Instant::now();
+    let mut idle = 0;
+    while idle < 5 && start.elapsed() < std::time::Duration::from_secs(60) {
+        h.run_steps(1);
+        idle = if h.state().ambientcg.busy() { 0 } else { idle + 1 };
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    let decals = h.state().ambientcg.results();
+    eprintln!("{} decals, first: {:?}", decals.len(), decals.first());
+    let id = decals.first().map(|d| d.0.clone()).expect("no decals found");
+    let r = texturecraft_engine::execute(&mut h.state_mut().session, "assets.ambientcg.import", &serde_json::json!({"id": id, "resolution": 1, "size": 0.6}));
+    eprintln!("decal import: {r:?}");
+    assert!(r.is_ok());
+    save(&mut h, &dir, "shelf-ambientcg-decal");
 }

@@ -1088,4 +1088,15 @@ pub const TABLE: &[(&str, &str)] = &[
     ("Hide Others", "ほかを非表示"),
     ("Show All", "すべてを表示"),
     ("Quit TextureCraft", "TextureCraft を終了"),
+    ("Decals", "デカール"),
+    (
+        "Click: place as a decal at the center of the 3D view, or drag it onto the 3D view. Right-click: other resolutions",
+        "クリック: 3Dビューの中央にデカールとして配置、または3Dビューにドラッグ。右クリック: ほかの解像度",
+    ),
+    ("Cutout", "切り抜き"),
+    ("Image alpha", "画像のアルファ"),
+    (
+        "What shapes the decal: its image's alpha, or an image whose brightness shows it (an opacity map)",
+        "デカールの形を決めるもの: 画像のアルファ、または明るさでデカールを見せる画像 (不透明度マップ)",
+    ),
 ];

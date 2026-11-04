@@ -42,7 +42,7 @@ Nothing below is bundled: the user downloads it, and it lands in their own proje
 
 | Source | Used for | License |
 |---|---|---|
-| [ambientCG](https://ambientcg.com) (Lennart Demes), through its public API v3 | The Assets panel's ambientCG tab and the `assets.ambientcg.*` commands: PBR materials (imported as fill layers) and HDRIs (imported as environments), with thumbnails shown while browsing | [CC0 1.0](https://docs.ambientcg.com/license/); the tab credits ambientCG.com |
+| [ambientCG](https://ambientcg.com) (Lennart Demes), through its public API v3 | The Assets panel's ambientCG tab and the `assets.ambientcg.*` commands: PBR materials (imported as fill layers), decals (imported as decal layers) and HDRIs (imported as environments), with thumbnails shown while browsing | [CC0 1.0](https://docs.ambientcg.com/license/); the tab credits ambientCG.com |
 
 Without craft-fonts, Chinese, Japanese, Korean and Arabic UI text uses the operating system's fonts at run
 time (nothing is bundled); see [docs/localization-parity.md](docs/localization-parity.md).

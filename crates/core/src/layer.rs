@@ -375,6 +375,12 @@ pub struct Fill {
     /// Set when the sources are maps cooked from a MaterialCraft material.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub link: Option<Box<MaterialLink>>,
+    /// A decal's cutout: an image resource whose brightness (times its alpha) is how much of
+    /// the decal shows, for decals whose maps carry no alpha (JPG maps with a separate opacity
+    /// map). Without it a decal is cut out by the alpha of its first image source. Ignored by
+    /// other projections.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cutout: Option<String>,
 }
 
 /// A MaterialCraft material behind a fill (from a `.mcmat` portable material): its channel

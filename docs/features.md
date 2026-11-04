@@ -19,7 +19,9 @@ Everything TextureCraft does today, by area. What's still missing is in [`ROADMA
   **particle brush**, **smudge**, **clone** (V + click sets the source), color picker, Shift+click
   straight lines, and painting directly in the **2D UV view**.
 - **Geometry decals:** drop an image on the surface, then move, scale and turn its frame; it stays
-  an editable fill layer.
+  an editable fill layer. Every channel image (normal, roughness, height…) projects through the
+  same frame, cut out by the base color image's alpha or by a **cutout** image (an opacity map:
+  Properties › Cutout), so JPG decals with a separate opacity map work too.
 - **Text** in any installed font (or the built-in ones), shaped for every script with kerning and
   ligatures, one or more lines: stamp it with the brush as its alpha, or place it as a decal in the
   tool's base color (Properties › Alpha › Text).
@@ -74,6 +76,12 @@ Everything TextureCraft does today, by area. What's still missing is in [`ROADMA
   thread, with the set's baked mesh maps (curvature, AO, thickness…) feeding graph inputs of the
   same name. *Open in MaterialCraft* edits the graph itself. In the browser the cooked maps paint,
   but the inputs are read-only.
+- **ambientCG:** the Assets panel's ambientCG tab searches ambientCG.com's CC0 library with
+  thumbnails. A click downloads in the background at the chosen resolution: a **material**
+  becomes a fill layer, a **decal** (road lines, manholes, leaks…) a decal layer with all its maps
+  at the center of the 3D view (or where its tile is dropped on it), cut out by its opacity map,
+  and an **HDRI** the environment. Desktop only: ambientCG's API doesn't accept requests from web
+  pages.
 
 ## Files and texture sets
 

@@ -60,6 +60,8 @@ pub enum Asset {
     Alpha(&'static str),
     Library(String),
     Texture(String),
+    /// An ambientCG decal of the ambientCG tab's results (its id), downloaded when applied.
+    AmbientCgDecal(String),
 }
 
 impl Asset {
@@ -97,6 +99,13 @@ pub fn apply(app: &mut TextureCraftApp, asset: &Asset) {
         Asset::Alpha(id) => ("tool.brush", json!({"alpha": {"library": id}})),
         Asset::Library(path) => ("material.load", json!({"path": path})),
         Asset::Texture(name) => ("layer.add.image", json!({"name": name})),
+        Asset::AmbientCgDecal(id) => {
+            let at = (app.viewport_rect.is_positive()).then(|| (app.viewport_rect.size() * 0.5, app.viewport_rect.size()));
+            if let Some((p, vp)) = at {
+                crate::ambientcg::drop_decal(app, id, p, vp);
+            }
+            return;
+        }
     };
     app.run(cmd, params);
 }
@@ -133,7 +142,7 @@ pub fn drop_target(app: &mut TextureCraftApp, ui: &Ui, resp: &egui::Response, zo
     let accepts = |d: &ShelfDrag| match d.asset {
         Asset::Alpha(_) => true,
         Asset::Material(_) | Asset::Library(_) => zone != DropZone::Brush,
-        Asset::Texture(_) => zone == DropZone::View3d,
+        Asset::Texture(_) | Asset::AmbientCgDecal(_) => zone == DropZone::View3d,
         Asset::SmartMask(_) | Asset::Filter(_) => false,
     };
     if resp.dnd_hover_payload::<ShelfDrag>().is_some_and(|d| accepts(&d)) {
@@ -148,6 +157,7 @@ pub fn drop_target(app: &mut TextureCraftApp, ui: &Ui, resp: &egui::Response, zo
                 let (q, vp) = (p - resp.rect.min, resp.rect.size());
                 app.run("layer.add.decal", json!({"image": name, "x": q.x, "y": q.y, "viewport": [vp.x, vp.y]}));
             }
+            (Asset::AmbientCgDecal(id), Some(p)) => crate::ambientcg::drop_decal(app, id, p - resp.rect.min, resp.rect.size()),
             (asset, _) => apply(app, asset),
         }
     }

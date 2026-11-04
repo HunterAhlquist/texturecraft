@@ -1060,12 +1060,17 @@ impl<'a, 'b> Texel<'a, 'b> {
     }
 
     /// How much a fill projected by `proj` covers this texel: 1, or for a decal its frame
-    /// coverage times the alpha of its first image source.
-    fn cover<'s>(&mut self, mut sources: impl Iterator<Item = &'s Source>, proj: &Projection) -> f32 {
+    /// coverage times its cutout (the brightness times alpha of image `cutout`) when it has one
+    /// that exists, else times the alpha of its first image source.
+    fn cover<'s>(&mut self, mut sources: impl Iterator<Item = &'s Source>, proj: &Projection, cutout: Option<&str>) -> f32 {
         if !matches!(proj, Projection::Decal(_)) {
             return 1.0;
         }
         let (c, _, w) = self.projected(proj);
+        if let Some(img) = cutout.and_then(|n| self.inp.images.get(n)) {
+            let [r, g, b, a] = img.sample(c.uv.x, c.uv.y);
+            return w * ((0.2126 * r + 0.7152 * g + 0.0722 * b) * a).clamp(0.0, 1.0);
+        }
         let image = sources.find_map(|s| match s {
             Source::Image { name, .. } => self.inp.images.get(name),
             _ => None,
@@ -1165,7 +1170,7 @@ impl<'a, 'b> Texel<'a, 'b> {
                 }
                 EffectKind::Fill { source, projection } => {
                     let val = self.source(source, projection, ChannelKind::Scalar)[0];
-                    v += (blend1(e.blend, v, val) - v) * o * self.cover(std::iter::once(source), projection);
+                    v += (blend1(e.blend, v, val) - v) * o * self.cover(std::iter::once(source), projection, None);
                 }
                 EffectKind::Generator(g) => {
                     let val = self.generator(g);
@@ -1378,7 +1383,7 @@ impl<'a, 'b> Texel<'a, 'b> {
                             Some(s) => self.source(s, &f.projection, ch.kind()),
                             None => ch.default_value(),
                         };
-                        (v, self.cover(f.sources.values(), &f.projection))
+                        (v, self.cover(f.sources.values(), &f.projection, f.cutout.as_deref()))
                     }
                     Content::Paint { preview } => self.painted(c.data.as_deref(), c, *preview),
                     Content::Group(_) => return None,
@@ -1459,7 +1464,7 @@ impl<'a, 'b> Texel<'a, 'b> {
             EffectKind::Material(f) => match Channel::ALL.get(c.ch).and_then(|ch| f.sources.get(ch).map(|s| (*ch, s))) {
                 Some((ch, s)) => {
                     let p = self.source(s, &f.projection, ch.kind());
-                    let w = o * self.cover(f.sources.values(), &f.projection);
+                    let w = o * self.cover(f.sources.values(), &f.projection, f.cutout.as_deref());
                     over(c, e.blend, v, cov, p, w)
                 }
                 None => (v, cov),
@@ -2507,6 +2512,57 @@ soft {soft:?}"
         assert!(close(out.value(Channel::BaseColor, 2, 2), [0.5; 3]), "outside the frame");
         let half = composite(0.5);
         assert!(close(half.value(Channel::BaseColor, 32, 32), [0.75, 0.25, 0.25]), "the image alpha shapes the decal");
+    }
+
+    #[test]
+    fn a_decal_cutout_image_shapes_it_instead_of_the_alpha() {
+        let f = fixture();
+        let s = f.gbuf.surface(&f.mesh, 32 * 64 + 32).unwrap();
+        let d = texturecraft_core::Decal {
+            center: s.pos.to_array(),
+            normal: s.nrm.to_array(),
+            up: s.nrm.any_orthonormal_vector().to_array(),
+            size: [1.0, 1.0],
+            rotation: 0.0,
+            offset: [0.0; 2],
+            depth: 0.5,
+        };
+        let composite = |f: &Fixture, cutout: Option<&str>| {
+            let mut project = f.project.clone();
+            let id = project.alloc_id();
+            let mut fill = Fill { projection: Projection::Decal(d), cutout: cutout.map(str::to_string), ..Fill::default() };
+            fill.sources.insert(Channel::BaseColor, Source::image("color"));
+            fill.sources.insert(Channel::Roughness, Source::Uniform([1.0; 3]));
+            project.insert_layer(0, Layer::new(id, "Decal", LayerKind::Fill(fill), &[Channel::BaseColor, Channel::Roughness]), None, false).unwrap();
+            // An opaque color map (a JPG) and a gray opacity map.
+            let color = crate::store::ImageRes { width: 2, height: 2, rgba: vec![[1.0, 0.0, 0.0, 1.0]; 4], srgb: false };
+            let cut = crate::store::ImageRes { width: 2, height: 2, rgba: vec![[0.25, 0.25, 0.25, 1.0]; 4], srgb: false };
+            let images: ImageStore = [("color".to_string(), std::sync::Arc::new(color)), ("cut".to_string(), std::sync::Arc::new(cut))].into_iter().collect();
+            let inp = Inputs {
+                project: &project,
+                ts: 0,
+                mesh: &f.mesh,
+                gbuf: &f.gbuf,
+                pixels: &f.pixels,
+                baked: &f.baked,
+                preview: None,
+                images: &images,
+                bounds: f.mesh.bounds(),
+            };
+            let mut out = Composite::new(&project.texture_sets[0].channel_list(), 64);
+            composite_tiles(&inp, &mut out, &all_tiles(64, 64));
+            out
+        };
+        let base = composite(&f, None);
+        assert!(close(base.value(Channel::BaseColor, 32, 32), [1.0, 0.0, 0.0]), "without a cutout an opaque map covers its whole frame");
+        let cut = composite(&f, Some("cut"));
+        assert!(close(cut.value(Channel::BaseColor, 32, 32), [0.625, 0.375, 0.375]), "{:?}", cut.value(Channel::BaseColor, 32, 32));
+        let below = composite(&f, Some("cut")).value(Channel::Roughness, 2, 2)[0];
+        let want = below + (1.0 - below) * 0.25;
+        assert!((cut.value(Channel::Roughness, 32, 32)[0] - want).abs() < 2e-3, "every channel is cut out alike");
+        assert!(close(cut.value(Channel::BaseColor, 2, 2), [0.5; 3]), "nothing outside the frame");
+        let missing = composite(&f, Some("gone"));
+        assert!(close(missing.value(Channel::BaseColor, 32, 32), [1.0, 0.0, 0.0]), "a missing cutout falls back to the alpha");
     }
 
     #[test]

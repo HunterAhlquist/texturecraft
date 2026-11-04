@@ -1073,4 +1073,15 @@ pub const TABLE: &[(&str, &str)] = &[
     ("Hide Others", "기타 가리기"),
     ("Show All", "모두 보기"),
     ("Quit TextureCraft", "TextureCraft 종료"),
+    ("Decals", "데칼"),
+    (
+        "Click: place as a decal at the center of the 3D view, or drag it onto the 3D view. Right-click: other resolutions",
+        "클릭: 3D 뷰 중앙에 데칼로 배치하거나 3D 뷰로 드래그합니다. 오른쪽 클릭: 다른 해상도",
+    ),
+    ("Cutout", "잘라내기"),
+    ("Image alpha", "이미지 알파"),
+    (
+        "What shapes the decal: its image's alpha, or an image whose brightness shows it (an opacity map)",
+        "데칼의 모양을 정하는 것: 이미지의 알파, 또는 밝기로 데칼을 보여 주는 이미지 (불투명도 맵)",
+    ),
 ];

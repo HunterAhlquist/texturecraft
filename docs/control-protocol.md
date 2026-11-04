@@ -250,7 +250,8 @@ OpenGL convention, `roughness`, `metallic`, `height`, `ambientOcclusion`, `emiss
 
 ## ambientCG
 
-[ambientCG](https://ambientcg.com) is a library of CC0 (public domain) PBR materials and HDRIs.
+[ambientCG](https://ambientcg.com) is a library of CC0 (public domain) PBR materials, decals and
+HDRIs.
 The Assets panel's ambientCG tab searches it and downloads with a click; agents use two commands.
 Both fetch over the network, so they work in the desktop app (control channel) and
 `texturecraft-cli` (MCP, `serve`, `run`), not in the browser build, and they only ever contact
@@ -258,14 +259,19 @@ ambientCG's API (`https://ambientcg.com/api/v3/assets`) and its download links.
 
 | Command | Params |
 |---|---|
-| `assets.ambientcg.search` | `{query?, type?: material\|hdri, sort?: popular\|latest\|downloads\|alphabet, limit?: 1-100 (30), offset?}` → `{total, assets: [{id, title, type, tags, maps, page, thumbnail, downloads: [{attributes, size}]}]}` |
-| `assets.ambientcg.import` | `{id, resolution?: 1\|2\|4\|8 (K, default 2), format?: jpg\|png}`: a material becomes one fill layer (one undo step) `{layer, channels, resources, warnings, source}`; an HDRI becomes a resource and the environment `{environment, resource, source}` |
+| `assets.ambientcg.search` | `{query?, type?: material\|decal\|hdri, sort?: popular\|latest\|downloads\|alphabet, limit?: 1-100 (30), offset?}` → `{total, assets: [{id, title, type, tags, maps, page, thumbnail, downloads: [{attributes, size}]}]}` |
+| `assets.ambientcg.import` | `{id, resolution?: 1\|2\|4\|8 (K, default 2), format?: jpg\|png}`, and for decals the placement params of `layer.add.decal` (`x`, `y`, `viewport` or `position`, `normal`; `up`, `size`, `rotation`, `depth`; default: the center of the view): a material becomes one fill layer (one undo step) `{layer, channels, resources, warnings, source}`; a decal one decal layer with every map, cut out by its opacity map `{layer, channels, resources, cutout, decal, warnings, source}`; an HDRI becomes a resource and the environment `{environment, resource, source}` |
 
 A material zip is read in memory (`formats::ambientcg`): the `.mtlx` it ships with gives the
 channels (through the MaterialX reader), and ambientCG's file name suffixes add any it leaves out
 (`_Color`, `_NormalGL`, `_Roughness`, `_Metalness`, `_Displacement` as height,
 `_AmbientOcclusion`, `_Opacity`, `_Emission`). Downloads over 1 GB are refused; pick a lower
 resolution. `source` names the asset, the download and its license for the record.
+
+A decal's opacity map becomes the layer's **cutout** (`Fill.cutout`, shown by `project.inspect`):
+an image whose brightness times alpha is how much of the decal shows, in place of the alpha of
+its base color image. `layer.add.decal` and `layer.decal.set` take `cutout` too (`null` goes back
+to the image alpha), for any decal whose maps carry no alpha.
 
 ## CLI
 

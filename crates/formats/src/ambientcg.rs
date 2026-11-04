@@ -1,6 +1,6 @@
 //! [ambientCG](https://ambientcg.com): its public asset API (v3) and its download zips.
 //!
-//! ambientCG publishes PBR materials and HDRIs under CC0 1.0 (public domain). This module is
+//! ambientCG publishes PBR materials, decals and HDRIs under CC0 1.0 (public domain). This module is
 //! pure: it builds request URLs, reads the API's JSON replies and reads downloaded zips from
 //! bytes. The caller does the HTTP (the engine through an installed fetcher, the UI
 //! asynchronously), so everything here also runs in the browser build and in offline tests.
@@ -8,7 +8,7 @@
 //! - [`Query::url`] builds an `/api/v3/assets` search; [`asset_url`] looks up one asset by id.
 //! - [`parse_page`] reads a reply into [`Asset`]s with their thumbnails and downloads.
 //! - [`Asset::download`] picks the zip for a resolution and file format.
-//! - [`read_material_zip`] turns a material zip into a [`Material`] (from the `.mtlx` it ships
+//! - [`read_material_zip`] turns a material (or decal) zip into a [`Material`] (from the `.mtlx` it ships
 //!   with, completed by ambientCG's file name suffixes) plus the bytes of the images it names.
 //! - [`read_hdri_zip`] finds the HDR image (`.exr`, else `.hdr`) in an HDRI zip.
 //!
@@ -59,17 +59,20 @@ pub enum Kind {
     /// A PBR material: one fill layer with its maps.
     #[default]
     Material,
+    /// A PBR decal: maps plus an opacity map, placed on the surface as a decal layer.
+    Decal,
     /// An HDR environment: the viewport's lighting.
     Hdri,
 }
 
 impl Kind {
-    pub const ALL: [Kind; 2] = [Kind::Material, Kind::Hdri];
+    pub const ALL: [Kind; 3] = [Kind::Material, Kind::Decal, Kind::Hdri];
 
     /// The API's `type` value.
     pub fn id(self) -> &'static str {
         match self {
             Kind::Material => "material",
+            Kind::Decal => "decal",
             Kind::Hdri => "hdri",
         }
     }
@@ -274,7 +277,10 @@ fn parse_asset(v: &Value) -> Option<Asset> {
                     if d.get("extension").and_then(Value::as_str).is_some_and(|e| !e.eq_ignore_ascii_case("zip")) {
                         return None;
                     }
-                    Some(Download { attributes, url, size: d.get("size").and_then(Value::as_u64).unwrap_or(0) })
+                    let d = Download { attributes, url, size: d.get("size").and_then(Value::as_u64).unwrap_or(0) };
+                    // Only plain maps (`2K-JPG`, `2K-PNG`, `2K` for HDRIs): not animated sequences.
+                    let usable = d.resolution_format().is_some_and(|(_, f)| f.is_none_or(|f| f.eq_ignore_ascii_case("JPG") || f.eq_ignore_ascii_case("PNG")));
+                    usable.then_some(d)
                 })
                 .take(MAX_DOWNLOADS)
                 .collect()
@@ -483,6 +489,7 @@ mod tests {
                 {"attributes": "2K-JPG", "extension": "zip", "url": "https://ambientcg.com/get?file=Wood096_2K-JPG.zip", "size": 19620619},
                 {"attributes": "8K-JPG", "extension": "zip", "url": "https://ambientcg.com/get?file=Wood096_8K-JPG.zip", "size": 1},
                 {"attributes": "1K-PNG", "extension": "zip", "url": "https://ambientcg.com/get?file=Wood096_1K-PNG.zip", "size": 15153371},
+                {"attributes": "1K-JPG-ANIMATED", "extension": "zip", "url": "https://ambientcg.com/get?file=Wood096_1K-JPG-ANIMATED.zip", "size": 9},
                 {"attributes": "2K-PNG", "extension": "zip", "url": "https://evil.example/get?file=Wood096_2K-PNG.zip", "size": 1}
              ]},
             {"id": "../etc", "title": "bad"},
@@ -502,6 +509,8 @@ mod tests {
         assert!(valid_id("Wood096") && valid_id("DayEnvironmentHDRI114"));
         assert!(!valid_id("") && !valid_id("../x") && !valid_id("a b") && !valid_id(&"a".repeat(65)));
         assert_eq!(Kind::from_id("HDRI"), Some(Kind::Hdri));
+        assert_eq!(Kind::from_id("decal"), Some(Kind::Decal));
+        assert!(Query { kind: Kind::Decal, ..Query::default() }.url().contains("type=decal&"));
         assert_eq!(Sort::from_id("nope"), None);
     }
 
@@ -513,7 +522,7 @@ mod tests {
         let w = &p.assets[0];
         assert_eq!((w.id.as_str(), w.title.as_str(), w.kind.as_str()), ("Wood096", "Wood 096", "material"));
         assert_eq!(w.thumbnail.as_deref(), Some("https://media.example/128/Wood096.png"));
-        assert_eq!(w.downloads.len(), 4, "a download off ambientCG is dropped");
+        assert_eq!(w.downloads.len(), 4, "a download off ambientCG and an animated one are dropped");
         assert_eq!(w.tags, ["wood", "grain"]);
         let h = &p.assets[1];
         assert_eq!(h.title, "DayEnvironmentHDRI114", "the id stands in for a missing title");
