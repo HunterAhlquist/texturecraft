@@ -9,7 +9,7 @@
 # Usage: packaging/macos/verify.sh [--arch universal|aarch64|x86_64]
 #
 # With a real signing identity and notarization credentials in the environment (the same
-# MACOS_SIGN_IDENTITY / APPLE_ID / APPLE_PASSWORD / APPLE_TEAM_ID that package.sh uses), every
+# MACOS_SIGN_IDENTITY and NOTARY_PROFILE or APPLE_ID / APPLE_PASSWORD / APPLE_TEAM_ID that package.sh uses), every
 # check is strict and a failure exits non-zero. Without them (local ad-hoc builds, or a release run
 # whose secrets are missing) only the signature's integrity is checked and the rest is a warning,
 # matching package.sh. Nothing here reads or prints a secret's value; it only tests whether one is set.
@@ -41,7 +41,7 @@ DMG="$DIST/texturecraft-$VERSION-macos-$ARCH.dmg"
 CLI_ZIP="$DIST/texturecraft-cli-$VERSION-macos-$ARCH.zip"
 IDENTITY="${MACOS_SIGN_IDENTITY:--}"
 STRICT=0
-if [ "$IDENTITY" != "-" ] && [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_PASSWORD:-}" ] && [ -n "${APPLE_TEAM_ID:-}" ]; then
+if [ "$IDENTITY" != "-" ] && { [ -n "${NOTARY_PROFILE:-}" ] || { [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_PASSWORD:-}" ] && [ -n "${APPLE_TEAM_ID:-}" ]; }; }; then
   STRICT=1
 fi
 

@@ -171,7 +171,11 @@ artwork and keep `ATTRIBUTION.md` in step. See `assets/app-icon/README.md`.
 - `cargo xtask ci`: fmt, clippy, tests, `cargo xtask layers`, `cargo xtask wasm`.
 - `bash packaging/linux/apprun-test.sh` and `bash packaging/freebsd/package.sh --dry-run` run
   anywhere with bash.
-- `packaging/macos/package.sh --arch aarch64` on a Mac builds an ad-hoc signed DMG.
+- `packaging/macos/package.sh --arch aarch64` on a Mac builds an ad-hoc signed DMG. With a
+  Developer ID in the login keychain, `MACOS_SIGN_IDENTITY="Developer ID Application: …"` signs it,
+  and `NOTARY_PROFILE=<name>` also notarizes and staples it, using credentials stored once with
+  `xcrun notarytool store-credentials <name> --apple-id <id> --team-id <team>` (it asks for an
+  app-specific password from account.apple.com and keeps it in the keychain).
 - `pwsh packaging/windows/package.ps1 -Arch x64` on Windows (needs WiX 5.0.2) builds an unsigned
   MSI and portable zip. Use PowerShell 7 as CI does: Windows PowerShell 5.1 with redirected output
   turns cargo's stderr into an error, so there build with cargo first and pass `-SkipBuild`.
