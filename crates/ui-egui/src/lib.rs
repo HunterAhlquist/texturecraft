@@ -7,6 +7,7 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
+pub mod ambientcg;
 pub mod control;
 pub mod dock;
 pub mod docking;
@@ -16,6 +17,8 @@ pub mod gpu;
 pub mod i18n;
 pub mod keymap;
 pub mod menus;
+#[cfg(target_os = "macos")]
+pub mod native_menu;
 pub mod parity;
 pub mod profile;
 pub mod render_mode;
@@ -85,6 +88,8 @@ pub struct TextureCraftApp {
     pub bake: Option<BakeJob>,
     pub resize: Option<ResizeJob>,
     pub link_cooks: Vec<LinkCook>,
+    /// The asset shelf's ambientCG tab: results and requests in flight.
+    pub ambientcg: ambientcg::Browser,
     pub thumbs: thumbs::Thumbs,
     /// Last frame's viewport rect (logical points), for scripted input.
     pub viewport_rect: egui::Rect,
@@ -111,6 +116,9 @@ pub struct TextureCraftApp {
     pub banner: Option<&'static str>,
     /// Who draws the window's title bar (decided at startup, before the window opens).
     pub title_bar: titlebar::TitleBar,
+    /// macOS: the menus in the system menu bar (`native_menu::install`); None keeps them in the window.
+    #[cfg(target_os = "macos")]
+    pub native_menu: Option<native_menu::NativeMenu>,
     last_time: f64,
     /// When the next autosave is due (seconds of app time; desktop only).
     #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
@@ -127,6 +135,9 @@ impl TextureCraftApp {
         // Bakes cast their rays on a GPU device of their own (created on the first bake).
         #[cfg(not(target_arch = "wasm32"))]
         texturecraft_engine::bake_cmds::install_gpu_tracer(Arc::new(texturecraft_render::gpu_bake::GpuBaker::new()));
+        // The `assets.ambientcg.*` commands (control channel) reach ambientCG through this.
+        #[cfg(not(target_arch = "wasm32"))]
+        ambientcg::install_fetcher();
         let gpu = cc.wgpu_render_state.as_ref().map(|rs| gpu::init(rs, &cc.egui_ctx));
         // The first run speaks the OS (or browser) language.
         let ui = cc.storage.and_then(|s| eframe::get_value::<UiState>(s, "ui")).unwrap_or_else(|| {
@@ -145,6 +156,7 @@ impl TextureCraftApp {
             bake: None,
             resize: None,
             link_cooks: Vec::new(),
+            ambientcg: ambientcg::Browser::default(),
             thumbs: thumbs::Thumbs::default(),
             viewport_rect: egui::Rect::NOTHING,
             fps: 0.0,
@@ -159,6 +171,8 @@ impl TextureCraftApp {
             fonts: fonts::UiFonts::default(),
             banner: None,
             title_bar: titlebar::TitleBar::default(),
+            #[cfg(target_os = "macos")]
+            native_menu: None,
             last_time: 0.0,
             next_autosave,
             styled: None,
@@ -483,6 +497,7 @@ impl eframe::App for TextureCraftApp {
         self.drive_auto_rebake();
         self.poll_resize(ctx);
         self.poll_link_cooks(ctx);
+        ambientcg::poll(self, ctx);
         // The library shelf rescans when the window comes back (MaterialCraft may have sent a material).
         let focused = ctx.input(|i| i.viewport().focused).unwrap_or(true);
         if focused && !self.focused {
@@ -502,6 +517,8 @@ impl eframe::App for TextureCraftApp {
             web_files::sync_unsaved(self);
         }
         self.fonts.update(ctx, i18n::current().code, self.ui.windows.settings);
+        #[cfg(target_os = "macos")]
+        native_menu::sync(self, ctx);
         menus::shortcuts(self, ctx);
         // A stored path being edited repaints its sublayer as its points, brush or material change.
         if let Err(e) = self.session.path_live() {

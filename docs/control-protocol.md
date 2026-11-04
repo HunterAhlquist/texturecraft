@@ -62,7 +62,7 @@ keeps its state in a throwaway file.
 | `command.run` | `{id, params?}` | the command's JSON result |
 | `command.list` | `{filter?}` | `[{id, label, menu, shortcut, params, enabled}]` |
 | `session.inspect` | | project, mesh, texture sets, layer stack, tool, camera, display, history |
-| `ui.inspect` | | UI state, viewport rect, fps, bake progress, toasts, `titleBar` (who draws the title bar this run: `app`, `integrated` on macOS, or `system`) |
+| `ui.inspect` | | UI state, viewport rect, fps, bake progress, toasts, `titleBar` (who draws the title bar this run: `app`, `integrated` on macOS, or `system`), `menus` (`system`: on macOS the menus are in the system menu bar, so `ui.screenshot` does not show them; `window`: in the window's strip, also on macOS with `TEXTURECRAFT_MENUS=window`) |
 | `ui.menu.list` | | the menu catalog: `{menu, submenu, label, id, shortcut, implemented, enabled}` |
 | `ui.menu.invoke` | `{id}` | behaves like a menu click (may open a window) |
 | `ui.set` | fields of the UI state, e.g. `{"layout": "Only3D"}`; `dock` is the panel layout, a craft-ui docking `Workspace` (`{version, layout: {root, floating}, hidden}`; `root` is a tree of `Split`, `Tabs` and `Stack` nodes over the panels `Viewport`, `Assets`, `TextureSetList`, `Layers`, `TextureSetSettings`, `Properties`, `Display`, `Shader`, `History` and `Log`; `hidden` lists where each closed panel was, so reopening it puts it back; a layout that does not read or has no docked `Viewport` becomes the default), `prefs` the settings (`{"language": "ja", "viewport_texture": 1, "brightness": "light", "accent": "blue"}`; missing fields take their defaults; `brightness` is `dark`, `mediumDark` (default), `mediumLight` or `light`, `accent` `copper` (default), `coral`, `blue`, `violet`, `green`, `amber` or `pink`, applied on the next frame; `system_title_bar` `true` has the system draw the title bar from the next start), `keymap` the custom shortcuts (`{"file.save": "F5"}`, `""` unbinds) | `null` |
@@ -247,6 +247,25 @@ matches the map's shared id (`ambientOcclusion`, `curvature`, `thickness`, `posi
 case and underscores ignored). Usages map to channels of the same id (`baseColor`, `normal` in
 OpenGL convention, `roughness`, `metallic`, `height`, `ambientOcclusion`, `emissive`, `opacity`,
 `specular`); missing channels join the texture set.
+
+## ambientCG
+
+[ambientCG](https://ambientcg.com) is a library of CC0 (public domain) PBR materials and HDRIs.
+The Assets panel's ambientCG tab searches it and downloads with a click; agents use two commands.
+Both fetch over the network, so they work in the desktop app (control channel) and
+`texturecraft-cli` (MCP, `serve`, `run`), not in the browser build, and they only ever contact
+ambientCG's API (`https://ambientcg.com/api/v3/assets`) and its download links.
+
+| Command | Params |
+|---|---|
+| `assets.ambientcg.search` | `{query?, type?: material\|hdri, sort?: popular\|latest\|downloads\|alphabet, limit?: 1-100 (30), offset?}` → `{total, assets: [{id, title, type, tags, maps, page, thumbnail, downloads: [{attributes, size}]}]}` |
+| `assets.ambientcg.import` | `{id, resolution?: 1\|2\|4\|8 (K, default 2), format?: jpg\|png}`: a material becomes one fill layer (one undo step) `{layer, channels, resources, warnings, source}`; an HDRI becomes a resource and the environment `{environment, resource, source}` |
+
+A material zip is read in memory (`formats::ambientcg`): the `.mtlx` it ships with gives the
+channels (through the MaterialX reader), and ambientCG's file name suffixes add any it leaves out
+(`_Color`, `_NormalGL`, `_Roughness`, `_Metalness`, `_Displacement` as height,
+`_AmbientOcclusion`, `_Opacity`, `_Emission`). Downloads over 1 GB are refused; pick a lower
+resolution. `source` names the asset, the download and its license for the record.
 
 ## CLI
 

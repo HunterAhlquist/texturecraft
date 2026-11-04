@@ -109,6 +109,7 @@ pub fn handle(app: &mut TextureCraftApp, ctx: &egui::Context, method: &str, p: &
                 "fps": app.fps,
                 "uiMs": app.ui_ms,
                 "titleBar": app.title_bar.name(),
+                "menus": if crate::menus::in_system_menu_bar(app) { "system" } else { "window" },
                 "baking": app.bake_progress(),
                 "toasts": app.toasts.iter().map(|t| json!({"text": t.text, "error": t.error})).collect::<Vec<_>>(),
             }))

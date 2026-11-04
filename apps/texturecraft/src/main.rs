@@ -209,6 +209,11 @@ fn main() {
             let mut app = TextureCraftApp::new(cc, session);
             app.title_bar = title_bar;
             app.ui.windows.start = start && app.ui.prefs.start_window;
+            // The menus go to the system menu bar (TEXTURECRAFT_MENUS=window keeps them in the window).
+            #[cfg(target_os = "macos")]
+            if texturecraft_ui_egui::native_menu::wanted() {
+                texturecraft_ui_egui::native_menu::install(&mut app, &cc.egui_ctx);
+            }
             if let Some(port) = control {
                 app.control = Some(control_server::start(port, cc.egui_ctx.clone()));
             }

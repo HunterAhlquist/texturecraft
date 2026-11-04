@@ -20,11 +20,15 @@
 //!   baked maps, the original mesh and a thumbnail).
 //! - `fonts`: the installed fonts' families and styles (native only), for text alphas.
 //!
+//! - [`ambientcg`]: the ambientCG asset API (v3) and its material and HDRI download zips (the
+//!   caller does the HTTP).
+//!
 //! Every reader takes untrusted bytes and returns an error, never panics. Byte-based functions
 //! work everywhere (including the web build); path-based ones are native only.
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
+pub mod ambientcg;
 pub mod export;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod fonts;

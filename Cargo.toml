@@ -60,6 +60,9 @@ schemars = "1"
 base64 = "0.22"
 cap-std = "4"
 getrandom = "0.3"
+# HTTP for ambientCG (asset search, thumbnails, downloads): ureq + rustls on the desktop, the
+# browser's fetch on the web. MIT OR Apache-2.0.
+ehttp = "0.7"
 # Opening the control token file without following symlinks, and the effective uid (Unix).
 rustix = { version = "1", default-features = false, features = ["std", "fs", "process"] }
 # Shared Craft egui components (widget palette, icon buttons, panel docking): storytold/craft-libs,
