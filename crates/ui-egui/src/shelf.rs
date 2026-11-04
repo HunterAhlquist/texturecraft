@@ -1,8 +1,9 @@
 //! The asset shelf (the Assets dock tab): tabs (materials, smart materials, smart
-//! masks, filters, alphas, procedurals, environments, textures), all built in and procedural.
-//! Search filters across every tab. Materials (built in and saved), smart masks, filters, alphas
-//! and textures drag onto the layer stack, a layer row, the viewport or the brush properties
-//! ([`ShelfDrag`]); a texture dropped on the 3D view becomes a decal there.
+//! masks, filters, alphas, procedurals, environments, textures), all built in and procedural,
+//! plus ambientCG's online CC0 library ([`crate::ambientcg`]). Search filters across every
+//! built-in tab; the ambientCG tab has a search of its own. Materials (built in and saved), smart
+//! masks, filters, alphas and textures drag onto the layer stack, a layer row, the viewport or the
+//! brush properties ([`ShelfDrag`]); a texture dropped on the 3D view becomes a decal there.
 
 use egui::{Color32, RichText, Sense, Stroke, Ui, vec2};
 use egui_phosphor::regular as ic;
@@ -33,10 +34,11 @@ pub(crate) enum Tab {
     Procedurals,
     Environments,
     Textures,
+    AmbientCg,
 }
 
 /// The shelf tabs: icon and (English, translated where shown) name.
-pub(crate) const TABS: [(Tab, &str, &str); 9] = [
+pub(crate) const TABS: [(Tab, &str, &str); 10] = [
     (Tab::Materials, ic::SPHERE, "Materials"),
     (Tab::Smart, ic::STACK, "Smart materials"),
     (Tab::Masks, ic::CIRCLE_HALF, "Smart masks"),
@@ -46,6 +48,7 @@ pub(crate) const TABS: [(Tab, &str, &str); 9] = [
     (Tab::Procedurals, ic::CHECKERBOARD, "Procedurals"),
     (Tab::Environments, ic::SUN_HORIZON, "Environments"),
     (Tab::Textures, ic::IMAGE, "Textures"),
+    (Tab::AmbientCg, ic::GLOBE, "ambientCG"),
 ];
 
 /// A shelf asset: built in (by id), a saved smart material (file path) or an image resource.
@@ -166,10 +169,15 @@ pub fn body(app: &mut TextureCraftApp, ui: &mut Ui) {
         }
     });
     app.ui.shelf_tab = tab;
-    ui.horizontal(|ui| {
-        ui.label(RichText::new(ic::MAGNIFYING_GLASS).color(tk.text_dim));
-        ui.add(egui::TextEdit::singleline(&mut app.ui.shelf_filter).hint_text(tr("Search all assets")).desired_width(f32::INFINITY));
-    });
+    let online = TABS.get(tab).is_some_and(|t| t.0 == Tab::AmbientCg) && !searching;
+    if online {
+        crate::ambientcg::controls(app, ui);
+    } else {
+        ui.horizontal(|ui| {
+            ui.label(RichText::new(ic::MAGNIFYING_GLASS).color(tk.text_dim));
+            ui.add(egui::TextEdit::singleline(&mut app.ui.shelf_filter).hint_text(tr("Search all assets")).desired_width(f32::INFINITY));
+        });
+    }
     ui.add_space(4.0);
     let filter = app.ui.shelf_filter.to_lowercase();
     egui::ScrollArea::vertical().id_salt("shelf_scroll").auto_shrink([false, false]).show(ui, |ui| {
@@ -192,6 +200,9 @@ pub fn body(app: &mut TextureCraftApp, ui: &mut Ui) {
                 Tab::Procedurals => procedurals(app, ui, &ctx, &filter, title),
                 Tab::Environments => environments(app, ui, &filter, title),
                 Tab::Textures => textures(app, ui, &ctx, &filter, title),
+                // Online: shown on its own tab only, never in a search of the built-in ones.
+                Tab::AmbientCg if online => crate::ambientcg::results(app, ui, &ctx),
+                Tab::AmbientCg => {}
             }
         }
     });
@@ -225,7 +236,7 @@ fn header(ui: &mut Ui, text: &str) {
     ui.label(RichText::new(text).size(11.0).color(tk.text_dim));
 }
 
-fn tiles(ui: &mut Ui, body: impl FnOnce(&mut Ui)) {
+pub(crate) fn tiles(ui: &mut Ui, body: impl FnOnce(&mut Ui)) {
     ui.horizontal_wrapped(|ui| {
         ui.spacing_mut().item_spacing = vec2(4.0, 4.0);
         body(ui);
@@ -540,7 +551,7 @@ fn textures(app: &mut TextureCraftApp, ui: &mut Ui, ctx: &egui::Context, filter:
 
 /// A shelf tile: thumbnail (a placeholder disc while it renders) and a wrapped label; tiles with
 /// a `drag` asset can be dragged.
-fn tile(ui: &mut Ui, tex: Option<&egui::TextureHandle>, label: &str, hint: &str, drag: Option<&Asset>) -> egui::Response {
+pub(crate) fn tile(ui: &mut Ui, tex: Option<&egui::TextureHandle>, label: &str, hint: &str, drag: Option<&Asset>) -> egui::Response {
     let tk = Tokens::get(ui.ctx());
     let sense = if drag.is_some() { Sense::click_and_drag() } else { Sense::click() };
     let (rect, resp) = ui.allocate_exact_size(vec2(72.0, 86.0), sense);

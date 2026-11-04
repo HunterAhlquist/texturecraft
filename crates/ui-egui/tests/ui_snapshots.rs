@@ -106,3 +106,31 @@ fn window_snapshots() {
     h.event(egui::Event::PointerButton { pos: c, button, pressed: false, modifiers: m });
     h.event(egui::Event::ModifiersChanged(egui::Modifiers::NONE));
 }
+
+/// The Assets panel's ambientCG tab once its first search and thumbnails are in (needs the
+/// network as well as a GPU adapter): `shelf-ambientcg.png`.
+#[test]
+#[ignore]
+fn ambientcg_snapshot() {
+    let Some(dir) = std::env::var_os("TC_UI_SNAPSHOTS").map(PathBuf::from) else {
+        eprintln!("set TC_UI_SNAPSHOTS=<dir> to write the pictures");
+        return;
+    };
+    std::fs::create_dir_all(&dir).unwrap();
+    let session = texturecraft_engine::sample_session(1024, 256).unwrap();
+    let mut h = Harness::builder().with_size(egui::vec2(1600.0, 960.0)).with_pixels_per_point(1.0).wgpu().build_eframe(|cc| TextureCraftApp::new(cc, session));
+    // The last shelf tab is ambientCG; showing it starts a search.
+    h.state_mut().ui.shelf_tab = 9;
+    h.state_mut().ui.dock.focus(Panel::Assets);
+    let start = std::time::Instant::now();
+    let mut idle = 0;
+    while idle < 5 && start.elapsed() < std::time::Duration::from_secs(60) {
+        h.run_steps(1);
+        idle = if h.state().ambientcg.busy() { 0 } else { idle + 1 };
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    let results = h.state().ambientcg.results();
+    eprintln!("{} results, first: {:?}", results.len(), results.first());
+    assert!(!results.is_empty(), "the first search found nothing");
+    save(&mut h, &dir, "shelf-ambientcg");
+}

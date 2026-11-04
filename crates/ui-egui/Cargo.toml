@@ -24,6 +24,7 @@ base64 = "0.22"
 image = { workspace = true }
 rfd = { workspace = true }
 zip = { workspace = true }
+ehttp = { workspace = true }
 
 # The OS UI language for the first run (MIT OR Apache-2.0; the browser asks `navigator.language`).
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
