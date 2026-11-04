@@ -1,5 +1,5 @@
 //! Stanford PLY (ascii, binary little and big endian): vertex positions, normals, UVs and colors,
-//! and faces of any size (fan-triangulated). Other elements and properties are skipped.
+//! and faces of any size (triangulated by `RawMesh::polygon`). Other elements and properties are skipped.
 
 use texturecraft_geom::glam::{Vec2, Vec3, Vec4};
 

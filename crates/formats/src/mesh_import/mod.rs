@@ -163,18 +163,95 @@ impl RawMesh {
         self.groups.iter().map(|(_, _, g)| g.len() / 3).sum()
     }
 
-    /// Fan-triangulate polygon `corners` (vertex indices) into `material`'s triangles in `part`,
-    /// remembering the diagonals so wireframes can show the polygon.
+    /// Triangulate polygon `corners` (vertex indices, in winding order) into `material`'s
+    /// triangles in `part` ([`triangulate`]), remembering the diagonals so wireframes can show
+    /// the polygon.
     pub fn polygon(&mut self, material: &str, part: &str, corners: &[u32]) {
-        let Some((&first, rest)) = corners.split_first() else { return };
-        let group = self.group(material, part);
-        for w in rest.windows(2) {
-            group.extend_from_slice(&[first, w[0], w[1]]);
+        if corners.len() < 3 {
+            return;
         }
-        for &v in rest.iter().skip(1).take(rest.len().saturating_sub(2)) {
-            self.diagonals.insert((first.min(v), first.max(v)));
+        let tris = triangulate(corners, &self.positions);
+        self.group(material, part).extend(tris.iter().flatten());
+        let n = corners.len();
+        let edges: HashSet<(u32, u32)> = (0..n).map(|i| edge_key(corners[i], corners[(i + 1) % n])).collect();
+        for t in &tris {
+            for i in 0..3 {
+                let e = edge_key(t[i], t[(i + 1) % 3]);
+                if e.0 != e.1 && !edges.contains(&e) {
+                    self.diagonals.insert(e);
+                }
+            }
         }
     }
+}
+
+fn edge_key(a: u32, b: u32) -> (u32, u32) {
+    (a.min(b), a.max(b))
+}
+
+/// Polygons with more corners than this are fanned (ear clipping is quadratic).
+const MAX_EAR_CLIP_CORNERS: usize = 4096;
+
+/// The triangles of polygon `corners` (indices into `positions`, in winding order): a fan from
+/// the first corner when the polygon is convex, ear clipping when it is concave (a fan's
+/// triangles would reach outside it and overlap), and a fan again when its shape cannot be told
+/// (degenerate, self-intersecting, or non-finite). Always `corners.len() - 2` triangles.
+pub(crate) fn triangulate(corners: &[u32], positions: &[Vec3]) -> Vec<[u32; 3]> {
+    let n = corners.len();
+    let fan = |ring: &[u32]| -> Vec<[u32; 3]> { (1..ring.len().saturating_sub(1)).map(|i| [ring[0], ring[i], ring[i + 1]]).collect() };
+    if n <= 3 || n > MAX_EAR_CLIP_CORNERS {
+        return fan(corners);
+    }
+    let pts: Option<Vec<Vec3>> = corners.iter().map(|&c| positions.get(c as usize).copied().filter(|p| p.is_finite())).collect();
+    let Some(pts) = pts else { return fan(corners) };
+    // The polygon's plane (Newell normal) and a basis in it; (u, v, normal) is right-handed, so
+    // the polygon's own winding is counter-clockwise in (u, v).
+    let mut normal = Vec3::ZERO;
+    for i in 0..n {
+        let (a, b) = (pts[i], pts[(i + 1) % n]);
+        normal += Vec3::new((a.y - b.y) * (a.z + b.z), (a.z - b.z) * (a.x + b.x), (a.x - b.x) * (a.y + b.y));
+    }
+    let Some(normal) = normal.try_normalize() else { return fan(corners) };
+    let helper = if normal.x.abs() < 0.9 { Vec3::X } else { Vec3::Y };
+    let Some(u) = normal.cross(helper).try_normalize() else { return fan(corners) };
+    let v = normal.cross(u);
+    let p2: Vec<Vec2> = pts.iter().map(|p| Vec2::new(p.dot(u), p.dot(v))).collect();
+    let (lo, hi) = p2.iter().fold((Vec2::INFINITY, Vec2::NEG_INFINITY), |(lo, hi), p| (lo.min(*p), hi.max(*p)));
+    let extent = (hi - lo).max_element();
+    if !extent.is_finite() || extent <= 0.0 {
+        return fan(corners);
+    }
+    // Areas below this count as flat (collinear corners, points on an edge).
+    let eps = extent * extent * 1e-7;
+    let turn = |a: Vec2, b: Vec2, c: Vec2| (b - a).perp_dot(c - b);
+    if (0..n).all(|i| turn(p2[(i + n - 1) % n], p2[i], p2[(i + 1) % n]) >= -eps) {
+        return fan(corners);
+    }
+    // Ear clipping: clip convex corners whose triangle holds no other (reflex) corner.
+    let inside = |q: Vec2, a: Vec2, b: Vec2, c: Vec2| turn(a, b, q) >= -eps && turn(b, c, q) >= -eps && turn(c, a, q) >= -eps;
+    let mut ring: Vec<usize> = (0..n).collect();
+    let mut out = Vec::with_capacity(n - 2);
+    while ring.len() > 3 {
+        let m = ring.len();
+        let corner = |k: usize| (ring[(k + m - 1) % m], ring[k], ring[(k + 1) % m]);
+        let reflex: Vec<usize> = (0..m).map(corner).filter(|&(a, b, c)| turn(p2[a], p2[b], p2[c]) <= eps).map(|(_, b, _)| b).collect();
+        let ear = (0..m).find(|&k| {
+            let (ia, ib, ic) = corner(k);
+            let (a, b, c) = (p2[ia], p2[ib], p2[ic]);
+            turn(a, b, c) > eps && !reflex.iter().any(|&j| j != ia && j != ib && j != ic && p2[j] != a && p2[j] != b && p2[j] != c && inside(p2[j], a, b, c))
+        });
+        let Some(k) = ear else {
+            // No ear left (self-intersecting or degenerate): fan what remains.
+            let rest: Vec<u32> = ring.iter().map(|&i| corners[i]).collect();
+            out.extend(fan(&rest));
+            return out;
+        };
+        let (ia, ib, ic) = corner(k);
+        out.push([corners[ia], corners[ib], corners[ic]]);
+        ring.remove(k);
+    }
+    out.push([corners[ring[0]], corners[ring[1]], corners[ring[2]]]);
+    out
 }
 
 /// One polygon corner of a scene format (FBX, COLLADA), already in world space.
@@ -185,7 +262,7 @@ pub(crate) struct Corner {
     pub uv: Option<Vec2>,
 }
 
-/// Collects polygons into a [`RawMesh`]: fan triangulation, one vertex per unique corner, and
+/// Collects polygons into a [`RawMesh`]: triangulation by [`RawMesh::polygon`], one vertex per unique corner, and
 /// normals / UVs kept only when every corner has them (else computed / unwrapped).
 #[derive(Default)]
 pub(crate) struct PolygonSink {

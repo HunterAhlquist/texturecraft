@@ -1,4 +1,4 @@
-//! Wavefront OBJ (via `tobj`): polygons fan-triangulated, one vertex per unique v/vt/vn.
+//! Wavefront OBJ (via `tobj`): polygons triangulated by `RawMesh::polygon`, one vertex per unique v/vt/vn.
 
 use texturecraft_geom::glam::{Vec2, Vec3, Vec4};
 

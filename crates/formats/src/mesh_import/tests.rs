@@ -1,4 +1,4 @@
-use texturecraft_geom::glam::{Vec2, Vec3, Vec4};
+use texturecraft_geom::glam::{Mat3, Vec2, Vec3, Vec4};
 
 use super::*;
 
@@ -504,4 +504,65 @@ fn ply_face_element_before_vertex_element() {
     assert_eq!(mesh.positions.len(), 3);
     let bad = format!("{head}3 0 1 5\n0 0 0\n1 0 0\n0 1 0\n");
     assert!(import_mesh_bytes("a.ply", bad.as_bytes()).is_err());
+}
+
+/// Even-odd point-in-polygon test in the XY plane.
+fn inside_xy(q: Vec3, poly: &[Vec3]) -> bool {
+    let mut inside = false;
+    for i in 0..poly.len() {
+        let (a, b) = (poly[i], poly[(i + 1) % poly.len()]);
+        if (a.y > q.y) != (b.y > q.y) && q.x < a.x + (q.y - a.y) / (b.y - a.y) * (b.x - a.x) {
+            inside = !inside;
+        }
+    }
+    inside
+}
+
+#[test]
+fn concave_polygons_are_triangulated_inside_their_outline() {
+    // A U shape (counter-clockwise): a fan from its first corner would cross the notch.
+    let u: Vec<Vec3> =
+        [(0.0, 0.0), (3.0, 0.0), (3.0, 2.0), (2.0, 2.0), (2.0, 1.0), (1.0, 1.0), (1.0, 2.0), (0.0, 2.0)].map(|(x, y)| Vec3::new(x, y, 0.0)).to_vec();
+    let corners: Vec<u32> = (0..8).collect();
+    let tris = triangulate(&corners, &u);
+    assert_eq!(tris.len(), 6);
+    let mut total = 0.0;
+    for t in &tris {
+        let p = t.map(|i| u[i as usize]);
+        let area = (p[1] - p[0]).cross(p[2] - p[0]);
+        assert!(area.z > 0.0, "triangle {t:?} is wound backwards");
+        assert!(inside_xy((p[0] + p[1] + p[2]) / 3.0, &u), "triangle {t:?} leaves the outline");
+        total += area.z / 2.0;
+    }
+    assert!((total - 5.0).abs() < 1e-5, "{total}");
+    // The same polygon anywhere in space, wound the other way, keeps its own winding.
+    let rot = Mat3::from_axis_angle(Vec3::new(1.0, 2.0, 3.0).normalize(), 0.7);
+    let placed: Vec<Vec3> = u.iter().rev().map(|p| rot * *p + Vec3::new(5.0, -2.0, 1.0)).collect();
+    let normal = rot * Vec3::NEG_Z;
+    let tris = triangulate(&corners, &placed);
+    assert_eq!(tris.len(), 6);
+    let total: f32 = tris
+        .iter()
+        .map(|t| {
+            let p = t.map(|i| placed[i as usize]);
+            let area = (p[1] - p[0]).cross(p[2] - p[0]);
+            assert!(area.dot(normal) > 0.0, "{t:?}");
+            area.length() / 2.0
+        })
+        .sum();
+    assert!((total - 5.0).abs() < 1e-4, "{total}");
+    // Convex polygons keep the fan from the first corner; degenerate input falls back to one.
+    let square = [Vec3::ZERO, Vec3::X, Vec3::new(1.0, 1.0, 0.0), Vec3::Y];
+    assert_eq!(triangulate(&[0, 1, 2, 3], &square), [[0, 1, 2], [0, 2, 3]]);
+    assert_eq!(triangulate(&[0, 1, 2, 3, 4], &[Vec3::ZERO; 5]).len(), 3);
+    assert_eq!(triangulate(&[0, 1, 9], &square).len(), 1);
+    assert_eq!(triangulate(&[0, 1, 9, 2], &square).len(), 2);
+    // Through RawMesh: diagonals are the triangle edges that are not polygon edges.
+    let mut raw = RawMesh { positions: u.clone(), ..RawMesh::default() };
+    raw.polygon("m", "p", &corners);
+    assert_eq!(raw.groups[0].2.len(), 18);
+    assert_eq!(raw.diagonals.len(), 5);
+    for &(a, b) in &raw.diagonals {
+        assert!(b - a != 1 && (a, b) != (0, 7), "{a}-{b} is a polygon edge");
+    }
 }
