@@ -1035,4 +1035,9 @@ pub const TABLE: &[(&str, &str)] = &[
         "فُتحت في MaterialCraft: استخدم هناك ملف > إرسال إلى TextureCraft لإعادة تغييراتك",
     ),
     ("Parameters change in the desktop app, with MaterialCraft installed", "تتغير المعلمات في تطبيق سطح المكتب مع تثبيت MaterialCraft"),
+    ("Services", "الخدمات"),
+    ("Hide TextureCraft", "إخفاء TextureCraft"),
+    ("Hide Others", "إخفاء الآخرين"),
+    ("Show All", "إظهار الكل"),
+    ("Quit TextureCraft", "إنهاء TextureCraft"),
 ];

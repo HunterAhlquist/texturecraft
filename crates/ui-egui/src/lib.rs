@@ -16,6 +16,8 @@ pub mod gpu;
 pub mod i18n;
 pub mod keymap;
 pub mod menus;
+#[cfg(target_os = "macos")]
+pub mod native_menu;
 pub mod parity;
 pub mod profile;
 pub mod render_mode;
@@ -111,6 +113,9 @@ pub struct TextureCraftApp {
     pub banner: Option<&'static str>,
     /// Who draws the window's title bar (decided at startup, before the window opens).
     pub title_bar: titlebar::TitleBar,
+    /// macOS: the menus in the system menu bar (`native_menu::install`); None keeps them in the window.
+    #[cfg(target_os = "macos")]
+    pub native_menu: Option<native_menu::NativeMenu>,
     last_time: f64,
     /// When the next autosave is due (seconds of app time; desktop only).
     #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
@@ -159,6 +164,8 @@ impl TextureCraftApp {
             fonts: fonts::UiFonts::default(),
             banner: None,
             title_bar: titlebar::TitleBar::default(),
+            #[cfg(target_os = "macos")]
+            native_menu: None,
             last_time: 0.0,
             next_autosave,
             styled: None,
@@ -502,6 +509,8 @@ impl eframe::App for TextureCraftApp {
             web_files::sync_unsaved(self);
         }
         self.fonts.update(ctx, i18n::current().code, self.ui.windows.settings);
+        #[cfg(target_os = "macos")]
+        native_menu::sync(self, ctx);
         menus::shortcuts(self, ctx);
         // A stored path being edited repaints its sublayer as its points, brush or material change.
         if let Err(e) = self.session.path_live() {

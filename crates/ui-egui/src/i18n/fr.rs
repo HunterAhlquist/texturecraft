@@ -1099,4 +1099,9 @@ pub const TABLE: &[(&str, &str)] = &[
         "Parameters change in the desktop app, with MaterialCraft installed",
         "Les paramètres se modifient dans l'application de bureau, avec MaterialCraft installé",
     ),
+    ("Services", "Services"),
+    ("Hide TextureCraft", "Masquer TextureCraft"),
+    ("Hide Others", "Masquer les autres"),
+    ("Show All", "Tout afficher"),
+    ("Quit TextureCraft", "Quitter TextureCraft"),
 ];

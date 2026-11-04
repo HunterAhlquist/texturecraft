@@ -1042,4 +1042,9 @@ pub const TABLE: &[(&str, &str)] = &[
         "MaterialCraft에서 열었습니다. 변경 내용을 가져오려면 그곳에서 파일 > TextureCraft로 보내기를 사용하세요",
     ),
     ("Parameters change in the desktop app, with MaterialCraft installed", "매개변수는 MaterialCraft가 설치된 데스크톱 앱에서 바꿀 수 있습니다"),
+    ("Services", "서비스"),
+    ("Hide TextureCraft", "TextureCraft 가리기"),
+    ("Hide Others", "기타 가리기"),
+    ("Show All", "모두 보기"),
+    ("Quit TextureCraft", "TextureCraft 종료"),
 ];

@@ -1093,4 +1093,9 @@ pub const TABLE: &[(&str, &str)] = &[
         "In MaterialCraft geöffnet: Dort mit Datei > An TextureCraft senden die Änderungen zurückholen",
     ),
     ("Parameters change in the desktop app, with MaterialCraft installed", "Parameter lassen sich in der Desktop-App mit installiertem MaterialCraft ändern"),
+    ("Services", "Dienste"),
+    ("Hide TextureCraft", "TextureCraft ausblenden"),
+    ("Hide Others", "Andere ausblenden"),
+    ("Show All", "Alle einblenden"),
+    ("Quit TextureCraft", "TextureCraft beenden"),
 ];

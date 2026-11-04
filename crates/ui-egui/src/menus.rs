@@ -119,6 +119,26 @@ pub fn hidden(app: &TextureCraftApp, item: &Item) -> bool {
     item.id == "blender.installAddon" && !enabled(app, item.id)
 }
 
+/// Whether the menus are in the system menu bar (macOS) instead of the window's strip.
+#[cfg(target_os = "macos")]
+pub fn in_system_menu_bar(app: &TextureCraftApp) -> bool {
+    app.native_menu.is_some()
+}
+#[cfg(not(target_os = "macos"))]
+pub fn in_system_menu_bar(_app: &TextureCraftApp) -> bool {
+    false
+}
+
+/// Whether the system menu bar runs the shortcut of `id` itself (macOS key equivalents).
+#[cfg(target_os = "macos")]
+fn menu_bar_owns(app: &TextureCraftApp, id: &str) -> bool {
+    crate::native_menu::owns_shortcut(app, id)
+}
+#[cfg(not(target_os = "macos"))]
+fn menu_bar_owns(_app: &TextureCraftApp, _id: &str) -> bool {
+    false
+}
+
 /// Whether an id is implemented at all (parity report).
 pub fn implemented(id: &str) -> bool {
     is_ui(id) || texturecraft_engine::find(id).is_some()
@@ -202,12 +222,14 @@ pub fn parse_shortcut(s: &str) -> Option<KeyboardShortcut> {
     key.map(|k| KeyboardShortcut::new(mods, k))
 }
 
-/// The menus, then the mode label at the right of `ui` (the strip `titlebar::show` lays out).
+/// The menus, then the mode label at the right of `ui` (the strip `titlebar::show` lays out). With
+/// the menus in the system menu bar only the mode label.
 pub fn menu_bar(app: &mut TextureCraftApp, ui: &mut egui::Ui) {
     let tk = Tokens::get(ui.ctx());
+    let in_window = !in_system_menu_bar(app);
     egui::MenuBar::new().ui(ui, |ui| {
         let ctx = ui.ctx().clone();
-        for top in TOP {
+        for top in TOP.into_iter().filter(|_| in_window) {
             ui.menu_button(tr(top), |ui| {
                 ui.set_min_width(220.0);
                 let mut current_sub: Option<&str> = None;
@@ -296,6 +318,9 @@ pub fn forwarded_shortcuts(app: &mut TextureCraftApp, ctx: &egui::Context, event
         let event = clipboard_key(&event, held).unwrap_or(event);
         let egui::Event::Key { key, pressed: true, repeat: false, modifiers, .. } = event else { continue };
         let Some((id, _)) = active.iter().find(|(_, sc)| sc.logical_key == key && modifiers.matches_logically(sc.modifiers)) else { continue };
+        if menu_bar_owns(app, id) {
+            continue;
+        }
         invoke(app, ctx, effect_command(app, id));
     }
 }
@@ -329,6 +354,10 @@ pub fn shortcuts(app: &mut TextureCraftApp, ctx: &egui::Context) {
     let mut fire: Vec<&str> = Vec::new();
     ctx.input_mut(|i| {
         for (id, sc) in &active {
+            // The system menu bar runs its key equivalents itself.
+            if menu_bar_owns(app, id) {
+                continue;
+            }
             if i.consume_shortcut(sc) {
                 fire.push(*id);
             }

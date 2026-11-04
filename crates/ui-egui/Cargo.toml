@@ -31,6 +31,10 @@ sys-locale = "0.3"
 # Floating panels open as OS windows.
 craft-ui = { workspace = true, features = ["native-windows"] }
 
+# macOS: the menus in the system menu bar (native_menu.rs; muda is MIT OR Apache-2.0, AppKit only).
+[target.'cfg(target_os = "macos")'.dependencies]
+muda = { version = "0.21", default-features = false }
+
 # build.rs: the interface faces lose their Private Use Area, where the icon font draws (the
 # versions craft-libs' craft-fonts-build subsets with).
 [build-dependencies]

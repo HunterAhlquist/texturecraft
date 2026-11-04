@@ -1057,4 +1057,9 @@ pub const TABLE: &[(&str, &str)] = &[
         "MaterialCraft で開きました。変更を戻すには、そちらで「ファイル > TextureCraft に送る」を使います",
     ),
     ("Parameters change in the desktop app, with MaterialCraft installed", "パラメーターは MaterialCraft をインストールしたデスクトップ版で変更できます"),
+    ("Services", "サービス"),
+    ("Hide TextureCraft", "TextureCraft を非表示"),
+    ("Hide Others", "ほかを非表示"),
+    ("Show All", "すべてを表示"),
+    ("Quit TextureCraft", "TextureCraft を終了"),
 ];

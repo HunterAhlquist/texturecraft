@@ -982,4 +982,9 @@ pub const TABLE: &[(&str, &str)] = &[
         "已在 MaterialCraft 中打开：在其中使用“文件 > 发送到 TextureCraft”即可带回更改",
     ),
     ("Parameters change in the desktop app, with MaterialCraft installed", "参数可在安装了 MaterialCraft 的桌面版中修改"),
+    ("Services", "服务"),
+    ("Hide TextureCraft", "隐藏 TextureCraft"),
+    ("Hide Others", "隐藏其他"),
+    ("Show All", "全部显示"),
+    ("Quit TextureCraft", "退出 TextureCraft"),
 ];

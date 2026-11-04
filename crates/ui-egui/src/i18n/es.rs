@@ -1075,4 +1075,9 @@ pub const TABLE: &[(&str, &str)] = &[
         "Abierto en MaterialCraft: usa allí Archivo > Enviar a TextureCraft para traer tus cambios",
     ),
     ("Parameters change in the desktop app, with MaterialCraft installed", "Los parámetros se cambian en la app de escritorio, con MaterialCraft instalado"),
+    ("Services", "Servicios"),
+    ("Hide TextureCraft", "Ocultar TextureCraft"),
+    ("Hide Others", "Ocultar otros"),
+    ("Show All", "Mostrar todo"),
+    ("Quit TextureCraft", "Salir de TextureCraft"),
 ];
