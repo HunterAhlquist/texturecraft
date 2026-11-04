@@ -1126,4 +1126,15 @@ pub const TABLE: &[(&str, &str)] = &[
         "What shapes the decal: its image's alpha, or an image whose brightness shows it (an opacity map)",
         "Cosa dà forma al decal: l'alfa della sua immagine, o un'immagine la cui luminosità lo mostra (una mappa di opacità)",
     ),
+    ("In this project", "In questo progetto"),
+    (
+        "Only the ambientCG assets this project already holds (no download needed)",
+        "Solo le risorse ambientCG che questo progetto contiene già (senza download)",
+    ),
+    ("No ambientCG assets in this project yet", "Ancora nessuna risorsa ambientCG in questo progetto"),
+    ("Updated \"{name}\" to the latest version from ambientCG", "\"{name}\" aggiornato all'ultima versione di ambientCG"),
+    (
+        "Click: use it again from this project (a newer version on ambientCG replaces it)",
+        "Clic: riusalo da questo progetto (una versione più recente su ambientCG lo sostituisce)",
+    ),
 ];

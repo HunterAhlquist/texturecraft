@@ -80,8 +80,12 @@ Everything TextureCraft does today, by area. What's still missing is in [`ROADMA
   thumbnails. A click downloads in the background at the chosen resolution: a **material**
   becomes a fill layer, a **decal** (road lines, manholes, leaks…) a decal layer with all its maps
   at the center of the 3D view (or where its tile is dropped on it), cut out by its opacity map,
-  and an **HDRI** the environment. Desktop only: ambientCG's API doesn't accept requests from web
-  pages.
+  and an **HDRI** the environment. The project keeps each asset once: using it again applies it
+  at once from the project (a check mark marks those tiles, and **In this project** lists them,
+  offline), while a background check asks ambientCG for a newer version and, if there is one,
+  replaces its maps in every layer. Downloads are cached on disk for other projects, and
+  unzipped and decoded off the UI thread. Desktop only: ambientCG's API doesn't accept requests
+  from web pages.
 
 ## Files and texture sets
 

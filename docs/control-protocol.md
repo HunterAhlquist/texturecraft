@@ -259,14 +259,25 @@ ambientCG's API (`https://ambientcg.com/api/v3/assets`) and its download links.
 
 | Command | Params |
 |---|---|
-| `assets.ambientcg.search` | `{query?, type?: material\|decal\|hdri, sort?: popular\|latest\|downloads\|alphabet, limit?: 1-100 (30), offset?}` → `{total, assets: [{id, title, type, tags, maps, page, thumbnail, downloads: [{attributes, size}]}]}` |
-| `assets.ambientcg.import` | `{id, resolution?: 1\|2\|4\|8 (K, default 2), format?: jpg\|png}`, and for decals the placement params of `layer.add.decal` (`x`, `y`, `viewport` or `position`, `normal`; `up`, `size`, `rotation`, `depth`; default: the center of the view): a material becomes one fill layer (one undo step) `{layer, channels, resources, warnings, source}`; a decal one decal layer with every map, cut out by its opacity map `{layer, channels, resources, cutout, decal, warnings, source}`; an HDRI becomes a resource and the environment `{environment, resource, source}` |
+| `assets.ambientcg.search` | `{query?, type?: material\|decal\|hdri, sort?: popular\|latest\|downloads\|alphabet, limit?: 1-100 (30), offset?}` → `{total, assets: [{id, title, type, tags, maps, page, thumbnail, downloads: [{attributes, size}], inProject}]}` (`inProject`: the download the project holds, or null) |
+| `assets.ambientcg.import` | `{id, resolution?: 1\|2\|4\|8 (K; default the download the project holds, else 2), format?: jpg\|png}`, and for decals the placement params of `layer.add.decal` (`x`, `y`, `viewport` or `position`, `normal`; `up`, `size`, `rotation`, `depth`; default: the center of the view): a material becomes one fill layer, a decal one decal layer with every map cut out by its opacity map, an HDRI the environment `{layer?, channels?, decal?, cutout?, environment?, resources, warnings, reused, updated, source}` |
+| `assets.ambientcg.list` | `{}` → the ambientCG assets the project holds: `[{site, id, title, kind, download, size, sha1?, maps, cutout?, environment?, uv_tiling}]` (also `importedAssets` in `project.inspect`) |
 
 A material zip is read in memory (`formats::ambientcg`): the `.mtlx` it ships with gives the
 channels (through the MaterialX reader), and ambientCG's file name suffixes add any it leaves out
 (`_Color`, `_NormalGL`, `_Roughness`, `_Metalness`, `_Displacement` as height,
 `_AmbientOcclusion`, `_Opacity`, `_Emission`). Downloads over 1 GB are refused; pick a lower
 resolution. `source` names the asset, the download and its license for the record.
+
+**Each asset is stored once per project.** The project records what it imported (download,
+size, SHA-1 from ambientCG's file host, and the image resources it became). Importing an asset it
+already holds reuses those images (`reused: true`) when ambientCG's file is unchanged: same
+download and size, and the same SHA-1 by a HEAD request. Otherwise the new version is downloaded
+and its images replace the old ones in every layer, fill effect, cutout and the environment, in
+one undo step (`updated: true`). *File › Remove unused resources* forgets assets no layer uses
+any more. On the desktop, downloads are also kept in `<data folder>/cache/ambientcg` (at most
+2 GB, least recently used dropped first), so another project gets the asset without downloading
+it.
 
 A decal's opacity map becomes the layer's **cutout** (`Fill.cutout`, shown by `project.inspect`):
 an image whose brightness times alpha is how much of the decal shows, in place of the alpha of

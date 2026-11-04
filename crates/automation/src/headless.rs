@@ -69,9 +69,9 @@ fn join(dir: &str, name: &str) -> String {
     if dir == "." { name.to_string() } else { format!("{}/{name}", dir.trim_end_matches('/')) }
 }
 
-/// A blocking GET for the ambientCG commands, refusing replies over `max` bytes.
-fn fetch(url: &str, max: u64) -> Result<Vec<u8>, String> {
-    let mut req = ehttp::Request::get(url);
+/// A blocking GET (or HEAD) for the ambientCG commands, refusing replies over `max` bytes.
+fn fetch(url: &str, max: u64, head: bool) -> Result<texturecraft_engine::ambientcg_cmds::Fetched, String> {
+    let mut req = if head { ehttp::Request::head(url) } else { ehttp::Request::get(url) };
     req.timeout = Some(std::time::Duration::from_secs(600));
     req.headers.insert("User-Agent", concat!("TextureCraft/", env!("CARGO_PKG_VERSION"), " (+https://github.com/storytold/texturecraft)"));
     let resp = ehttp::fetch_blocking(&req)?;
@@ -81,7 +81,8 @@ fn fetch(url: &str, max: u64) -> Result<Vec<u8>, String> {
     if resp.bytes.len() as u64 > max {
         return Err(format!("the reply is larger than {} MB", max >> 20));
     }
-    Ok(resp.bytes)
+    let sha1 = resp.headers.get(texturecraft_engine::ambientcg_cmds::SHA1_HEADER).map(str::to_string);
+    Ok(texturecraft_engine::ambientcg_cmds::Fetched { bytes: resp.bytes, sha1 })
 }
 
 impl Headless {

@@ -173,6 +173,7 @@ pub fn session(s: &Session) -> Value {
         "view": s.view.label(),
         "camera": crate::view_cmds::camera_json(s),
         "display": s.doc.project.display,
+        "importedAssets": s.doc.project.assets,
         "history": { "undo": s.undo_label(), "redo": s.redo_label(), "depth": s.history_labels().len() },
         "memoryBytes": s.memory().total(),
         "pendingTiles": s.pending_tiles(),

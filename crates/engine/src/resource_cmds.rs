@@ -119,14 +119,22 @@ fn remove(s: &mut Session, p: &Value) -> Result<Value> {
     }
     s.edit("Remove resource", |s| {
         s.doc.resources.remove(&name);
+        prune_assets(s);
         Ok(())
     })?;
     s.sync_images();
     Ok(Value::Null)
 }
 
+/// Forget the images of imported assets (ambientCG) that are no longer resources, and assets with
+/// none left: applying one again downloads it.
+fn prune_assets(s: &mut Session) {
+    let resources = &s.doc.resources;
+    s.doc.project.assets.retain_mut(|a| a.retain_resources(|n| resources.contains_key(n)));
+}
+
 /// Drop resources no layer, mask effect, the projection stencil or the environment uses (one undo
-/// step).
+/// step); imported assets that none of those use go with them.
 fn remove_unused(s: &mut Session, _: &Value) -> Result<Value> {
     let mut used = Vec::new();
     for set in &s.doc.project.texture_sets {
@@ -140,6 +148,7 @@ fn remove_unused(s: &mut Session, _: &Value) -> Result<Value> {
     if !unused.is_empty() {
         s.edit("Remove unused resources", |s| {
             s.doc.resources.retain(|k, _| !unused.contains(k));
+            prune_assets(s);
             Ok(())
         })?;
         s.sync_images();

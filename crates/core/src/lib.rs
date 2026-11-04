@@ -19,9 +19,9 @@ pub use layer::{
     LinkPreset, Mask, MaskBackground, MaterialLink, PathShape, Procedural, ProceduralKind, Projection, Source, gradient, hsl_adjust, per_unit,
 };
 pub use project::{
-    AoMixing, BakeMatch, BakeSettings, BakedMap, BlockScales, Camera, DepthOfField, DirectionMode, DisplaySettings, FORMAT_VERSION, MAX_RESOLUTION,
-    MIN_RESOLUTION, NormalFormat, NormalMixing, PositionMode, Project, RayDistribution, RaySettings, SelfOcclusion, TextureSet, TileGrid, ToneMapping,
-    UDIM_RANGE, udim_at,
+    AoMixing, BakeMatch, BakeSettings, BakedMap, BlockScales, Camera, DepthOfField, DirectionMode, DisplaySettings, FORMAT_VERSION, ImportedAsset,
+    MAX_RESOLUTION, MIN_RESOLUTION, NormalFormat, NormalMixing, PositionMode, Project, RayDistribution, RaySettings, SelfOcclusion, TextureSet, TileGrid,
+    ToneMapping, UDIM_RANGE, udim_at,
 };
 
 #[derive(Debug, thiserror::Error, Clone, PartialEq)]

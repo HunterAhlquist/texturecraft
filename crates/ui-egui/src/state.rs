@@ -297,11 +297,13 @@ pub struct AmbientCgUi {
     pub resolution: u32,
     /// Material maps as PNG rather than JPG.
     pub png: bool,
+    /// List only the assets the project holds.
+    pub in_project: bool,
 }
 
 impl Default for AmbientCgUi {
     fn default() -> Self {
-        AmbientCgUi { query: String::new(), kind: "material".into(), sort: "popular".into(), resolution: 2, png: false }
+        AmbientCgUi { query: String::new(), kind: "material".into(), sort: "popular".into(), resolution: 2, png: false, in_project: false }
     }
 }
 

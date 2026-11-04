@@ -1099,4 +1099,12 @@ pub const TABLE: &[(&str, &str)] = &[
         "What shapes the decal: its image's alpha, or an image whose brightness shows it (an opacity map)",
         "デカールの形を決めるもの: 画像のアルファ、または明るさでデカールを見せる画像 (不透明度マップ)",
     ),
+    ("In this project", "このプロジェクト内"),
+    ("Only the ambientCG assets this project already holds (no download needed)", "このプロジェクトに含まれている ambientCG アセットのみ (ダウンロード不要)"),
+    ("No ambientCG assets in this project yet", "このプロジェクトにはまだ ambientCG アセットがありません"),
+    ("Updated \"{name}\" to the latest version from ambientCG", "「{name}」を ambientCG の最新版に更新しました"),
+    (
+        "Click: use it again from this project (a newer version on ambientCG replaces it)",
+        "クリック: このプロジェクトから再利用 (ambientCG に新しい版があれば置き換え)",
+    ),
 ];

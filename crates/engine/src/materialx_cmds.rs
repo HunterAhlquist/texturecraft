@@ -64,11 +64,6 @@ impl Prepared {
         self.names.insert(file.to_string(), unique.clone());
         Ok(unique)
     }
-
-    /// The decoded image of resource `name` among those added.
-    pub(crate) fn decoded(&self, name: &str) -> Option<&texturecraft_compose::ImageRes> {
-        self.decoded.iter().find(|(n, _)| n == name).map(|(_, i)| i.as_ref())
-    }
 }
 
 impl Session {

@@ -1,11 +1,16 @@
 //! The ambientCG tab of the Assets shelf: search ambientCG's CC0 library of materials, decals and
-//! HDRIs, with thumbnails, and download one with a click. A material becomes a fill layer above
-//! the selection, a decal a decal layer at the center of the 3D view (or where its tile is
-//! dropped on it), an HDRI the viewport environment ([`Session::import_ambientcg_zip`]; agents
-//! use the `assets.ambientcg.*` commands instead). Every request runs in the background (ehttp),
-//! so the window never waits on the network.
+//! HDRIs, with thumbnails, and use one with a click. A material becomes a fill layer above the
+//! selection, a decal a decal layer at the center of the 3D view (or where its tile is dropped
+//! on it), an HDRI the viewport environment.
 //!
-//! [`Session::import_ambientcg_zip`]: texturecraft_engine::Session::import_ambientcg_zip
+//! The project remembers what it imported ([`texturecraft_engine::core::ImportedAsset`]). An asset
+//! it already holds applies at once from its own images; a check in the background then asks
+//! ambientCG whether the file changed (size, SHA-1) and, when it did, downloads it and replaces
+//! the images in every layer. "In this project" lists only those assets, offline.
+//!
+//! Searches and thumbnails load asynchronously (ehttp). Downloads, the download cache, unzipping
+//! and decoding run on a worker thread ([`texturecraft_engine::ambientcg_cmds`]), so the window
+//! never waits on the network or on decoding.
 
 use std::collections::HashMap;
 use std::sync::mpsc::{Receiver, Sender, channel};
@@ -14,7 +19,9 @@ use std::time::Duration;
 use egui::{Color32, RichText, Ui, vec2};
 use egui_phosphor::regular as ic;
 use serde_json::{Value, json};
-use texturecraft_engine::formats::ambientcg::{self, Asset, Kind, Page, Query, Sort};
+use texturecraft_engine::ambientcg_cmds::{self as acg, Unpacked, Version};
+use texturecraft_engine::core::ImportedAsset;
+use texturecraft_engine::formats::ambientcg::{self, Asset, Download, Kind, Page, Query, Sort};
 
 use crate::TextureCraftApp;
 use crate::i18n::{tr, trf};
@@ -27,6 +34,9 @@ const MAX_THUMBS: usize = 600;
 /// Who is asking (desktop only: browsers set their own).
 #[cfg(not(target_arch = "wasm32"))]
 const USER_AGENT: &str = concat!("TextureCraft/", env!("CARGO_PKG_VERSION"), " (+https://github.com/storytold/texturecraft)");
+/// The download cache's size limit (desktop).
+#[cfg(not(target_arch = "wasm32"))]
+const CACHE_BYTES: u64 = 2 << 30;
 
 enum Thumb {
     Loading,
@@ -50,14 +60,17 @@ enum Msg {
         id: String,
         result: Result<egui::ColorImage, String>,
     },
-    /// `place`: a decal's placement, pinned to the surface when it was asked for.
-    Zip {
+    /// A download, unzipped and decoded on a worker thread. `place`: apply it too (a decal's
+    /// placement, pinned when it was asked for); None for an update of a held asset.
+    Ready {
         id: String,
         title: String,
-        kind: Kind,
-        attributes: String,
-        place: Value,
-        result: Result<Vec<u8>, String>,
+        result: Result<Box<(Version, Unpacked)>, String>,
+        place: Option<Value>,
+    },
+    /// A held asset's background check found ambientCG's file unchanged (or couldn't tell).
+    Current {
+        id: String,
     },
 }
 
@@ -76,6 +89,8 @@ pub struct Browser {
     error: Option<String>,
     thumbs: HashMap<String, Thumb>,
     downloads: Vec<Pending>,
+    /// Held assets being checked for a newer version.
+    checking: Vec<String>,
     /// The first search runs when the tab first shows.
     started: bool,
     /// For requests started outside the tab's drawing (a tile dropped on the 3D view).
@@ -96,6 +111,7 @@ impl Default for Browser {
             error: None,
             thumbs: HashMap::new(),
             downloads: Vec::new(),
+            checking: Vec::new(),
             started: false,
             ctx: None,
         }
@@ -103,9 +119,9 @@ impl Default for Browser {
 }
 
 impl Browser {
-    /// Whether a search, thumbnail or download is still on its way.
+    /// Whether a search, thumbnail, download or update check is still on its way.
     pub fn busy(&self) -> bool {
-        self.searching || !self.downloads.is_empty() || self.thumbs.values().any(|t| matches!(t, Thumb::Loading))
+        self.searching || !self.downloads.is_empty() || !self.checking.is_empty() || self.thumbs.values().any(|t| matches!(t, Thumb::Loading))
     }
 
     /// The results shown: (id, title).
@@ -128,6 +144,24 @@ fn get(ctx: &egui::Context, tx: &Sender<Msg>, url: &str, timeout: Duration, done
     });
 }
 
+/// Run `work` on a worker thread (inline in the browser, which has none) and send its message.
+fn spawn(app: &TextureCraftApp, work: impl FnOnce() -> Msg + Send + 'static) {
+    let (tx, ctx) = (app.ambientcg.tx.clone(), app.ambientcg.ctx.clone());
+    let run = move || {
+        let _ = tx.send(work());
+        if let Some(c) = ctx {
+            c.request_repaint();
+        }
+    };
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        // A failed spawn drops the job; the error shows as nothing happening, never a crash.
+        let _ = std::thread::Builder::new().name("texturecraft-ambientcg".into()).spawn(run);
+    }
+    #[cfg(target_arch = "wasm32")]
+    run();
+}
+
 /// A failed request's message, with the likely cause in the browser build.
 fn explain(e: String) -> String {
     if cfg!(target_arch = "wasm32") {
@@ -137,12 +171,12 @@ fn explain(e: String) -> String {
     }
 }
 
-/// The blocking fetcher behind the `assets.ambientcg.*` commands (control channel), refusing
-/// replies over `max` bytes.
+/// The blocking fetcher behind downloads and the `assets.ambientcg.*` commands, and the
+/// download cache in the data folder.
 #[cfg(not(target_arch = "wasm32"))]
-pub fn install_fetcher() {
-    texturecraft_engine::ambientcg_cmds::install_fetcher(std::sync::Arc::new(|url: &str, max: u64| {
-        let mut req = ehttp::Request::get(url);
+pub fn install() {
+    acg::install_fetcher(std::sync::Arc::new(|url: &str, max: u64, head: bool| {
+        let mut req = if head { ehttp::Request::head(url) } else { ehttp::Request::get(url) };
         req.timeout = Some(Duration::from_secs(600));
         req.headers.insert("User-Agent", USER_AGENT);
         let resp = ehttp::fetch_blocking(&req)?;
@@ -152,8 +186,10 @@ pub fn install_fetcher() {
         if resp.bytes.len() as u64 > max {
             return Err(format!("the reply is larger than {} MB", max >> 20));
         }
-        Ok(resp.bytes)
+        let sha1 = resp.headers.get(acg::SHA1_HEADER).map(str::to_string);
+        Ok(acg::Fetched { bytes: resp.bytes, sha1 })
     }));
+    acg::install_cache(crate::user_dir("cache").join("ambientcg"), CACHE_BYTES);
 }
 
 /// Start a search with the tab's terms: a new one, or the next page of the current one.
@@ -187,41 +223,39 @@ fn search(app: &mut TextureCraftApp, ctx: &egui::Context, append: bool) {
     });
 }
 
-/// Import `asset` (the zip nearest the tab's resolution and format, or `attributes`). A decal
-/// goes where `at` is in the 3D view (a point in it and its size), else at its center: the
-/// spot on the surface is found now, so moving the view during the download doesn't move it.
+/// Where a decal of kind `kind` goes (`at`: a point in the 3D view and its size, else its
+/// center), pinned to the surface now so moving the view meanwhile doesn't move it; `{}` for
+/// other kinds. None (after a toast) when nothing is there.
+fn placement(app: &mut TextureCraftApp, kind: Kind, at: Option<(egui::Vec2, egui::Vec2)>) -> Option<Value> {
+    if kind != Kind::Decal {
+        return Some(json!({}));
+    }
+    let params = at.map_or(json!({}), |(p, vp)| json!({"x": p.x, "y": p.y, "viewport": [vp.x, vp.y]}));
+    match app.session.decal_placement(&params) {
+        Ok(place) => Some(place),
+        Err(e) => {
+            app.toast(e.to_string(), true);
+            None
+        }
+    }
+}
+
+/// Use search result `asset` (the download nearest the tab's resolution and format, or
+/// `attributes`). The project's copy applies at once when it is that download at the same size
+/// (and a background check compares the SHA-1); anything else is downloaded first.
 pub(crate) fn start(app: &mut TextureCraftApp, asset: &Asset, attributes: Option<&str>, at: Option<(egui::Vec2, egui::Vec2)>) {
     if app.ambientcg.downloads.iter().any(|d| d.id == asset.id) {
         return;
     }
-    let place = if app.ambientcg.results_kind == Kind::Decal {
-        let params = at.map_or(json!({}), |(p, vp)| json!({"x": p.x, "y": p.y, "viewport": [vp.x, vp.y]}));
-        match app.session.decal_placement(&params) {
-            Ok(place) => place,
-            Err(e) => {
-                app.toast(e.to_string(), true);
-                return;
-            }
-        }
-    } else {
-        Value::Null
-    };
-    download(app, asset, attributes, place);
-}
-
-/// Place the decal `id` of the results where it was dropped on the 3D view.
-pub(crate) fn drop_decal(app: &mut TextureCraftApp, id: &str, at: egui::Vec2, viewport: egui::Vec2) {
-    if let Some(asset) = app.ambientcg.results.iter().find(|a| a.id == id).cloned() {
-        start(app, &asset, None, Some((at, viewport)));
-    }
-}
-
-fn download(app: &mut TextureCraftApp, asset: &Asset, attributes: Option<&str>, place: Value) {
-    let Some(ctx) = app.ambientcg.ctx.clone() else { return };
     let prefs = &app.ui.ambientcg;
     let pick = match attributes {
         Some(a) => asset.downloads.iter().find(|d| d.attributes == a),
-        None => asset.download(prefs.resolution, if prefs.png { "PNG" } else { "JPG" }),
+        None => {
+            // Without an explicit choice, the download the project already holds.
+            let held = app.session.ambientcg_asset(&asset.id).map(|r| r.download.clone());
+            held.and_then(|h| asset.downloads.iter().find(|d| d.attributes == h))
+                .or_else(|| asset.download(prefs.resolution, if prefs.png { "PNG" } else { "JPG" }))
+        }
     };
     let Some(d) = pick.cloned() else {
         app.toast(trf("{name} has no download", &[("name", &asset.title)]), true);
@@ -231,9 +265,90 @@ fn download(app: &mut TextureCraftApp, asset: &Asset, attributes: Option<&str>, 
         app.toast(trf("{name} is too large at this resolution: pick a lower one", &[("name", &asset.title)]), true);
         return;
     }
-    let (id, title, kind, attributes) = (asset.id.clone(), asset.title.clone(), app.ambientcg.results_kind, d.attributes);
-    app.ambientcg.downloads.push(Pending { id: id.clone(), title: title.clone() });
-    get(&ctx, &app.ambientcg.tx, &d.url, Duration::from_secs(600), move |result| Msg::Zip { id, title, kind, attributes, place, result });
+    let kind = app.ambientcg.results_kind;
+    let Some(place) = placement(app, kind, at) else { return };
+    let held = app.session.ambientcg_asset(&asset.id).cloned();
+    match held {
+        Some(rec) if rec.download == d.attributes && rec.size == d.size => {
+            if apply_held(app, &rec, &place) {
+                check(app, rec, Some(d));
+            }
+        }
+        _ => fetch(app, &asset.id, &asset.title, kind, d, Some(place)),
+    }
+}
+
+/// Use held asset `id` (the "In this project" view): it applies at once, then a background
+/// check asks ambientCG whether its file changed.
+fn use_held(app: &mut TextureCraftApp, id: &str, at: Option<(egui::Vec2, egui::Vec2)>) {
+    let Some(rec) = app.session.ambientcg_asset(id).cloned() else { return };
+    let kind = Kind::from_id(&rec.kind).unwrap_or_default();
+    let Some(place) = placement(app, kind, at) else { return };
+    if apply_held(app, &rec, &place) {
+        check(app, rec, None);
+    }
+}
+
+/// Apply the project's copy of `rec`; false (after a toast) when that fails.
+fn apply_held(app: &mut TextureCraftApp, rec: &ImportedAsset, place: &Value) -> bool {
+    match app.session.apply_ambientcg(&rec.id, place) {
+        Ok(_) => {
+            app.toast(trf("Added \"{name}\" from ambientCG", &[("name", &rec.title)]), false);
+            true
+        }
+        Err(e) => {
+            app.toast(format!("{}: {e}", rec.title), true);
+            false
+        }
+    }
+}
+
+/// Ask ambientCG in the background whether held asset `rec` changed (its download's size, then
+/// its SHA-1): when it did, download it and replace its images in every layer. `known`: the
+/// download as a fresh search reported it (saves looking it up).
+fn check(app: &mut TextureCraftApp, rec: ImportedAsset, known: Option<Download>) {
+    if app.ambientcg.checking.contains(&rec.id) || app.ambientcg.downloads.iter().any(|d| d.id == rec.id) {
+        return;
+    }
+    app.ambientcg.checking.push(rec.id.clone());
+    let kind = Kind::from_id(&rec.kind).unwrap_or_default();
+    spawn(app, move || {
+        let (id, title) = (rec.id.clone(), rec.title.clone());
+        let d = match known {
+            Some(d) => Some(d),
+            None => acg::lookup(&id).ok().and_then(|a| a.downloads.into_iter().find(|d| d.attributes == rec.download)),
+        };
+        // Offline, or the download is gone: keep what the project has.
+        let Some(d) = d else { return Msg::Current { id } };
+        let sha1 = if rec.size == d.size && rec.sha1.is_some() { acg::remote_sha1(&d.url) } else { None };
+        if acg::is_current(&rec, &d, sha1.as_deref()) {
+            return Msg::Current { id };
+        }
+        Msg::Ready { result: fetch_unpack(&id, &title, kind, &d), id, title, place: None }
+    });
+}
+
+/// Download (or take from the cache), unzip and decode download `d`: blocking.
+fn fetch_unpack(id: &str, title: &str, kind: Kind, d: &Download) -> Result<Box<(Version, Unpacked)>, String> {
+    let got = acg::download(id, d)?;
+    let u = acg::unpack(kind, title, &d.attributes, &got.bytes)?;
+    Ok(Box::new((Version { download: d.attributes.clone(), size: d.size, sha1: got.sha1 }, u)))
+}
+
+/// Download `d` of asset `id` on a worker thread; `place`: apply it once it is in.
+fn fetch(app: &mut TextureCraftApp, id: &str, title: &str, kind: Kind, d: Download, place: Option<Value>) {
+    app.ambientcg.downloads.push(Pending { id: id.into(), title: title.into() });
+    let (id, title) = (id.to_string(), title.to_string());
+    spawn(app, move || Msg::Ready { result: fetch_unpack(&id, &title, kind, &d), id, title, place });
+}
+
+/// Place decal `id` where it was dropped on the 3D view (a search result, or held by the project).
+pub(crate) fn drop_decal(app: &mut TextureCraftApp, id: &str, at: egui::Vec2, viewport: egui::Vec2) {
+    if app.ui.ambientcg.in_project {
+        use_held(app, id, Some((at, viewport)));
+    } else if let Some(asset) = app.ambientcg.results.iter().find(|a| a.id == id).cloned() {
+        start(app, &asset, None, Some((at, viewport)));
+    }
 }
 
 fn decode_thumb(bytes: &[u8]) -> Result<egui::ColorImage, String> {
@@ -281,12 +396,18 @@ pub fn poll(app: &mut TextureCraftApp, ctx: &egui::Context) {
                 };
                 b.thumbs.insert(id, t);
             }
-            Msg::Zip { id, title, kind, attributes, place, result } => {
+            Msg::Current { id } => b.checking.retain(|c| *c != id),
+            Msg::Ready { id, title, result, place } => {
                 b.downloads.retain(|d| d.id != id);
-                let done = result.and_then(|bytes| app.session.import_ambientcg_zip(kind, &id, &title, &attributes, &bytes, &place).map_err(|e| e.to_string()));
-                match done {
-                    Ok(_) => app.toast(trf("Added \"{name}\" from ambientCG", &[("name", &title)]), false),
-                    Err(e) => app.toast(format!("{title}: {e}"), true),
+                b.checking.retain(|c| *c != id);
+                let done = result.and_then(|b| {
+                    let (version, u) = *b;
+                    app.session.import_ambientcg(&id, &title, version, u, place.as_ref()).map_err(|e| e.to_string())
+                });
+                match (done, place) {
+                    (Ok(_), Some(_)) => app.toast(trf("Added \"{name}\" from ambientCG", &[("name", &title)]), false),
+                    (Ok(_), None) => app.toast(trf("Updated \"{name}\" to the latest version from ambientCG", &[("name", &title)]), false),
+                    (Err(e), _) => app.toast(format!("{title}: {e}"), true),
                 }
             }
         }
@@ -298,6 +419,7 @@ pub fn controls(app: &mut TextureCraftApp, ui: &mut Ui) {
     let tk = Tokens::get(ui.ctx());
     let ctx = ui.ctx().clone();
     let mut go = false;
+    let in_project = app.ui.ambientcg.in_project;
     ui.horizontal(|ui| {
         ui.label(RichText::new(ic::MAGNIFYING_GLASS).color(tk.text_dim));
         let r = ui.add(egui::TextEdit::singleline(&mut app.ui.ambientcg.query).hint_text(tr("Search ambientCG")).desired_width(f32::INFINITY));
@@ -317,59 +439,87 @@ pub fn controls(app: &mut TextureCraftApp, ui: &mut Ui) {
             },
         );
         prefs.kind = kind.id().into();
-        let sorts = [(Sort::Popular, tr("Popular")), (Sort::Latest, tr("Newest")), (Sort::Downloads, tr("Most downloaded")), (Sort::Alphabet, tr("A to Z"))];
-        let mut sort = Sort::from_id(&prefs.sort).unwrap_or_default();
-        egui::ComboBox::from_id_salt("acg_sort").width(96.0).selected_text(sorts.iter().find(|s| s.0 == sort).map(|s| s.1).unwrap_or_default()).show_ui(
-            ui,
-            |ui| {
-                for (s, label) in sorts {
-                    go |= ui.selectable_value(&mut sort, s, label).changed();
-                }
-            },
-        );
-        prefs.sort = sort.id().into();
-        let format = if kind == Kind::Hdri {
-            ""
-        } else if prefs.png {
-            " PNG"
-        } else {
-            " JPG"
-        };
-        egui::ComboBox::from_id_salt("acg_res")
-            .width(64.0)
-            .selected_text(format!("{}K{format}", prefs.resolution))
-            .show_ui(ui, |ui| {
-                for k in [1, 2, 4, 8] {
-                    ui.selectable_value(&mut prefs.resolution, k, format!("{k}K"));
-                }
-                if kind != Kind::Hdri {
-                    ui.separator();
-                    ui.selectable_value(&mut prefs.png, false, "JPG");
-                    ui.selectable_value(&mut prefs.png, true, "PNG");
-                }
-            })
-            .response
-            .on_hover_text(tr("Download resolution and file format"));
+        if !in_project {
+            let sorts =
+                [(Sort::Popular, tr("Popular")), (Sort::Latest, tr("Newest")), (Sort::Downloads, tr("Most downloaded")), (Sort::Alphabet, tr("A to Z"))];
+            let mut sort = Sort::from_id(&prefs.sort).unwrap_or_default();
+            egui::ComboBox::from_id_salt("acg_sort").width(96.0).selected_text(sorts.iter().find(|s| s.0 == sort).map(|s| s.1).unwrap_or_default()).show_ui(
+                ui,
+                |ui| {
+                    for (s, label) in sorts {
+                        go |= ui.selectable_value(&mut sort, s, label).changed();
+                    }
+                },
+            );
+            prefs.sort = sort.id().into();
+            let format = if kind == Kind::Hdri {
+                ""
+            } else if prefs.png {
+                " PNG"
+            } else {
+                " JPG"
+            };
+            egui::ComboBox::from_id_salt("acg_res")
+                .width(64.0)
+                .selected_text(format!("{}K{format}", prefs.resolution))
+                .show_ui(ui, |ui| {
+                    for k in [1, 2, 4, 8] {
+                        ui.selectable_value(&mut prefs.resolution, k, format!("{k}K"));
+                    }
+                    if kind != Kind::Hdri {
+                        ui.separator();
+                        ui.selectable_value(&mut prefs.png, false, "JPG");
+                        ui.selectable_value(&mut prefs.png, true, "PNG");
+                    }
+                })
+                .response
+                .on_hover_text(tr("Download resolution and file format"));
+        }
+        ui.toggle_value(&mut prefs.in_project, format!("{} {}", ic::FOLDER_SIMPLE, tr("In this project")))
+            .on_hover_text(tr("Only the ambientCG assets this project already holds (no download needed)"));
     });
-    if go || !app.ambientcg.started {
+    // Coming back from the project view runs the search its terms may have changed.
+    if !app.ui.ambientcg.in_project && (go || !app.ambientcg.started || in_project) {
         search(app, &ctx, false);
     }
 }
 
-/// The results: thumbnails to click, more on demand, and the credit.
+/// The results (or the project's assets): thumbnails to click, more on demand, and the credit.
 pub fn results(app: &mut TextureCraftApp, ui: &mut Ui, ctx: &egui::Context) {
-    let tk = Tokens::get(ctx);
     for d in &app.ambientcg.downloads {
         ui.horizontal(|ui| {
             ui.spinner();
             ui.label(RichText::new(trf("Downloading {name}...", &[("name", &d.title)])).size(11.0));
         });
     }
-    let hint = match app.ambientcg.results_kind {
+    if app.ui.ambientcg.in_project {
+        held_assets(app, ui, ctx);
+    } else {
+        search_results(app, ui, ctx);
+    }
+    ui.add_space(6.0);
+    ui.hyperlink_to(RichText::new(tr("Assets from ambientCG.com: CC0, free for any use")).size(10.0), ambientcg::SITE_URL);
+}
+
+fn hint(kind: Kind) -> &'static str {
+    match kind {
         Kind::Material => tr("Click: add as a fill layer above the selected layer. Right-click: other resolutions"),
         Kind::Decal => tr("Click: place as a decal at the center of the 3D view, or drag it onto the 3D view. Right-click: other resolutions"),
         Kind::Hdri => tr("Click: use as the environment. Right-click: other resolutions"),
-    };
+    }
+}
+
+/// A check mark on tiles of assets the project holds.
+fn held_badge(ui: &Ui, rect: egui::Rect) {
+    let tk = Tokens::get(ui.ctx());
+    let c = rect.right_top() + vec2(-11.0, 11.0);
+    ui.painter().circle_filled(c, 7.0, tk.accent);
+    ui.painter().text(c, egui::Align2::CENTER_CENTER, ic::CHECK, egui::FontId::proportional(10.0), Color32::WHITE);
+}
+
+fn search_results(app: &mut TextureCraftApp, ui: &mut Ui, ctx: &egui::Context) {
+    let tk = Tokens::get(ctx);
+    let hint = hint(app.ambientcg.results_kind);
     let assets = app.ambientcg.results.clone();
     let mut clicked: Option<(Asset, Option<String>)> = None;
     crate::shelf::tiles(ui, |ui| {
@@ -393,6 +543,9 @@ pub fn results(app: &mut TextureCraftApp, ui: &mut Ui, ctx: &egui::Context) {
             // Decals drag onto the 3D view, to be placed where they drop.
             let drag = (app.ambientcg.results_kind == Kind::Decal && !busy).then(|| crate::shelf::Asset::AmbientCgDecal(a.id.clone()));
             let r = crate::shelf::tile(ui, tex.as_ref(), &a.title, hint, drag.as_ref());
+            if app.session.ambientcg_asset(&a.id).is_some() {
+                held_badge(ui, r.rect);
+            }
             if busy {
                 ui.painter().rect_filled(r.rect, 3.0, Color32::from_black_alpha(110));
                 ui.put(egui::Rect::from_center_size(r.rect.center_top() + vec2(0.0, 32.0), vec2(20.0, 20.0)), egui::Spinner::new());
@@ -437,6 +590,55 @@ pub fn results(app: &mut TextureCraftApp, ui: &mut Ui, ctx: &egui::Context) {
     } else if (b.results.len() as u64) < b.total && ui.button(tr("Load more")).clicked() {
         search(app, ctx, true);
     }
-    ui.add_space(6.0);
-    ui.hyperlink_to(RichText::new(tr("Assets from ambientCG.com: CC0, free for any use")).size(10.0), ambientcg::SITE_URL);
+}
+
+/// The ambientCG assets the project holds, of the chosen kind, matching the search words.
+fn held_assets(app: &mut TextureCraftApp, ui: &mut Ui, ctx: &egui::Context) {
+    let tk = Tokens::get(ctx);
+    let kind = Kind::from_id(&app.ui.ambientcg.kind).unwrap_or_default();
+    let words: Vec<String> = app.ui.ambientcg.query.split([' ', ',']).filter(|w| !w.is_empty()).map(str::to_lowercase).collect();
+    let held: Vec<ImportedAsset> = app
+        .session
+        .doc
+        .project
+        .assets
+        .iter()
+        .filter(|a| a.site == acg::SITE && a.kind == kind.id() && app.session.ambientcg_asset(&a.id).is_some())
+        .filter(|a| words.iter().all(|w| a.title.to_lowercase().contains(w) || a.id.to_lowercase().contains(w)))
+        .cloned()
+        .collect();
+    if held.is_empty() {
+        ui.label(RichText::new(tr("No ambientCG assets in this project yet")).color(tk.text_dim));
+        return;
+    }
+    let hint = tr("Click: use it again from this project (a newer version on ambientCG replaces it)");
+    let mut clicked = None;
+    crate::shelf::tiles(ui, |ui| {
+        for a in &held {
+            // The project's own images make the thumbnails, so this works offline.
+            let image = a.maps.get(&texturecraft_engine::core::Channel::BaseColor).or(a.environment.as_ref());
+            let tex = image.and_then(|n| app.session.images.get(n).cloned().map(|img| app.thumbs.image(ctx, n, &img)));
+            let drag = (kind == Kind::Decal).then(|| crate::shelf::Asset::AmbientCgDecal(a.id.clone()));
+            let busy = app.ambientcg.downloads.iter().any(|d| d.id == a.id);
+            let r = crate::shelf::tile(ui, tex.as_ref(), &a.title, hint, drag.as_ref());
+            if busy || app.ambientcg.checking.contains(&a.id) {
+                ui.put(egui::Rect::from_center_size(r.rect.right_top() + vec2(-11.0, 11.0), vec2(14.0, 14.0)), egui::Spinner::new());
+            } else {
+                held_badge(ui, r.rect);
+            }
+            if r.clicked() && !busy {
+                clicked = Some(a.id.clone());
+            }
+            r.context_menu(|ui| {
+                ui.label(RichText::new(format!("{} · {}", a.download, a.id)).size(10.5).color(tk.text_dim));
+                if ui.button(format!("{}  {}", ic::ARROW_SQUARE_OUT, tr("Open on ambientCG.com"))).clicked() {
+                    ctx.open_url(egui::OpenUrl::new_tab(format!("{}/a/{}", ambientcg::SITE_URL, a.id)));
+                    ui.close();
+                }
+            });
+        }
+    });
+    if let Some(id) = clicked {
+        use_held(app, &id, None);
+    }
 }

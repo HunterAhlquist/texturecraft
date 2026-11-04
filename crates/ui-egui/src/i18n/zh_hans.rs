@@ -1021,4 +1021,9 @@ pub const TABLE: &[(&str, &str)] = &[
         "What shapes the decal: its image's alpha, or an image whose brightness shows it (an opacity map)",
         "决定贴花形状的内容：其图像的 Alpha，或以亮度显示贴花的图像（不透明度贴图）",
     ),
+    ("In this project", "本项目中"),
+    ("Only the ambientCG assets this project already holds (no download needed)", "仅显示本项目已包含的 ambientCG 资产（无需下载）"),
+    ("No ambientCG assets in this project yet", "本项目中还没有 ambientCG 资产"),
+    ("Updated \"{name}\" to the latest version from ambientCG", "已将“{name}”更新为 ambientCG 上的最新版本"),
+    ("Click: use it again from this project (a newer version on ambientCG replaces it)", "单击：从本项目再次使用（ambientCG 上的新版本会替换它）"),
 ];

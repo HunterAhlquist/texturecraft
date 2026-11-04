@@ -1084,4 +1084,12 @@ pub const TABLE: &[(&str, &str)] = &[
         "What shapes the decal: its image's alpha, or an image whose brightness shows it (an opacity map)",
         "데칼의 모양을 정하는 것: 이미지의 알파, 또는 밝기로 데칼을 보여 주는 이미지 (불투명도 맵)",
     ),
+    ("In this project", "이 프로젝트"),
+    ("Only the ambientCG assets this project already holds (no download needed)", "이 프로젝트에 이미 있는 ambientCG 에셋만 (다운로드 없음)"),
+    ("No ambientCG assets in this project yet", "이 프로젝트에 아직 ambientCG 에셋이 없습니다"),
+    ("Updated \"{name}\" to the latest version from ambientCG", "\"{name}\"을(를) ambientCG의 최신 버전으로 업데이트함"),
+    (
+        "Click: use it again from this project (a newer version on ambientCG replaces it)",
+        "클릭: 이 프로젝트에서 다시 사용합니다 (ambientCG에 더 새 버전이 있으면 교체)",
+    ),
 ];

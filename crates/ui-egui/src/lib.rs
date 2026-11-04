@@ -135,9 +135,6 @@ impl TextureCraftApp {
         // Bakes cast their rays on a GPU device of their own (created on the first bake).
         #[cfg(not(target_arch = "wasm32"))]
         texturecraft_engine::bake_cmds::install_gpu_tracer(Arc::new(texturecraft_render::gpu_bake::GpuBaker::new()));
-        // The `assets.ambientcg.*` commands (control channel) reach ambientCG through this.
-        #[cfg(not(target_arch = "wasm32"))]
-        ambientcg::install_fetcher();
         let gpu = cc.wgpu_render_state.as_ref().map(|rs| gpu::init(rs, &cc.egui_ctx));
         // The first run speaks the OS (or browser) language.
         let ui = cc.storage.and_then(|s| eframe::get_value::<UiState>(s, "ui")).unwrap_or_else(|| {
@@ -186,6 +183,9 @@ impl TextureCraftApp {
         {
             // The first window of the process fixes it; a new folder applies on restart.
             let _ = DATA_FOLDER.set(data_folder(&app.ui.prefs.data_folder));
+            // ambientCG downloads (and the `assets.ambientcg.*` commands) go through this, with
+            // a download cache in the data folder.
+            ambientcg::install();
             // An export folder still at the default follows the data folder.
             if app.ui.export.dir == data_folder("").join("export").display().to_string() {
                 app.ui.export.dir = user_dir("export").display().to_string();

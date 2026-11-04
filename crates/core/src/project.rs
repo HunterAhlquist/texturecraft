@@ -681,6 +681,60 @@ pub struct Project {
     /// Saved and imported cameras (the viewport's default camera is not in the list).
     #[serde(default)]
     pub cameras: Vec<Camera>,
+    /// Assets imported from an online library (ambientCG) and the image resources they became.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub assets: Vec<ImportedAsset>,
+}
+
+/// An asset imported from an online library and the image resources it became, so applying it
+/// again reuses them, and a newer version of it replaces them in every layer at once.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ImportedAsset {
+    /// The library (`ambientCG`).
+    pub site: String,
+    /// The library's id (`Wood096`).
+    pub id: String,
+    pub title: String,
+    /// `material`, `decal` or `hdri`.
+    pub kind: String,
+    /// The download it came from (`2K-JPG`).
+    pub download: String,
+    /// The download's size in bytes: a different size means a new version.
+    pub size: u64,
+    /// The download's SHA-1 when its host reported one (a stricter check than the size).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sha1: Option<String>,
+    /// Image resource per channel (materials and decals).
+    #[serde(default)]
+    pub maps: BTreeMap<Channel, String>,
+    /// A decal's cutout (its opacity map).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cutout: Option<String>,
+    /// An HDRI's environment image.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub environment: Option<String>,
+    /// A material's UV tiling.
+    #[serde(default = "unit_tiling")]
+    pub uv_tiling: [f32; 2],
+}
+
+fn unit_tiling() -> [f32; 2] {
+    [1.0, 1.0]
+}
+
+impl ImportedAsset {
+    /// Every image resource the asset holds.
+    pub fn resources(&self) -> impl Iterator<Item = &String> {
+        self.maps.values().chain(self.cutout.iter()).chain(self.environment.iter())
+    }
+
+    /// Forget resources `keep` rejects (removed from the project). False when nothing is left.
+    pub fn retain_resources(&mut self, keep: impl Fn(&str) -> bool) -> bool {
+        self.maps.retain(|_, n| keep(n));
+        self.cutout = self.cutout.take().filter(|n| keep(n));
+        self.environment = self.environment.take().filter(|n| keep(n));
+        self.resources().next().is_some()
+    }
 }
 
 impl Project {
@@ -696,6 +750,50 @@ impl Project {
             next_id: 1,
             display: DisplaySettings::default(),
             cameras: Vec::new(),
+            assets: Vec::new(),
+        }
+    }
+
+    /// Point every use of an image resource named in `renames` (fill sources and cutouts, mask
+    /// and content fill effects, the environment, imported assets) at its new name.
+    pub fn rename_images(&mut self, renames: &BTreeMap<String, String>) {
+        fn source(s: &mut crate::Source, renames: &BTreeMap<String, String>) {
+            if let crate::Source::Image { name, .. } = s
+                && let Some(n) = renames.get(name.as_str())
+            {
+                *name = n.clone();
+            }
+        }
+        fn fill(f: &mut crate::Fill, renames: &BTreeMap<String, String>) {
+            f.sources.values_mut().for_each(|s| source(s, renames));
+            if let Some(c) = &mut f.cutout
+                && let Some(n) = renames.get(c.as_str())
+            {
+                *c = n.clone();
+            }
+        }
+        for layer in self.layers.values_mut() {
+            if let LayerKind::Fill(f) = &mut layer.kind {
+                fill(f, renames);
+            }
+            let effects = layer.mask.iter_mut().flat_map(|m| m.effects.iter_mut()).chain(layer.content_effects.iter_mut());
+            for e in effects {
+                match &mut e.kind {
+                    crate::EffectKind::Fill { source: s, .. } => source(s, renames),
+                    crate::EffectKind::Material(f) => fill(f, renames),
+                    _ => {}
+                }
+            }
+        }
+        if let Some(n) = self.display.environment_resource().and_then(|r| renames.get(r)) {
+            self.display.environment = format!("{ENV_RESOURCE_PREFIX}{n}");
+        }
+        for a in &mut self.assets {
+            for r in a.maps.values_mut().chain(a.cutout.iter_mut()).chain(a.environment.iter_mut()) {
+                if let Some(n) = renames.get(r.as_str()) {
+                    *r = n.clone();
+                }
+            }
         }
     }
 
